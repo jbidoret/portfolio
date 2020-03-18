@@ -25,6 +25,10 @@ Vous pourrez ensuite :
 5. ouvrir un onglet avec le [guide de Kirby](https://getkirby.com/docs/guide) et un autre avec la [référence](https://getkirby.com/docs/reference). NB : la documentation de Kirby est très précise et permet de résoudre la plupart des problèmes. À défaut, aller chercher dans le [forum](https://forum.getkirby.com/) ou y poser vos questions.
 
 
+## Processus et documentation
+
+À suivre sur le site des [ateliers web de l’ÉSAD Pyrénées](https://ateliers.esad-pyrenees.fr/web/pages/projets/portfolio).
+
 # Kirby
 
 Kirby is a file-based CMS.
