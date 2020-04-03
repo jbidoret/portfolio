@@ -1,0 +1,90 @@
+Title: Apollo
+
+----
+
+Subtitle: Workshop
+
+----
+
+Year: 2019
+
+----
+
+Collective: true
+
+----
+
+Intro: À l’occasion de l’inauguration de l’École Supérieure d’art et de design des Pyrénées et de l’espace des Arts, le festival accès)s( et le Pôle nouveaux médias de l’école ont invité en workshop le studio Chevalvert.
+
+----
+
+Cover:
+
+- >
+  gbusx7fmfij3hijs1lgtz66ibby4lkfsxsndkvph_xuzb3kwlulglw-nzympryrothz1y-cch-a1mljuef7rryxbz6vm7jffdcv5vyfelauwztc0fp1uvlknj8ywdqnp.jpg
+
+----
+
+Video-cover: 
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: https://vimeo.com/373774450/47fd9ea4c7
+
+----
+
+Details:
+
+## Préambule
+
+À la manière de Power of Ten™ de Charles et Ray Eames en 1977, il s’agira d’inventer des formes de représentation du voyage entre l’infiniment grand et l’infiniment petit permettant de relativiser la place de l’être humain sur la planète, dans l’univers. [Video de *Powers of Ten™* | 1977](https://www.youtube.com/watch?v=0fKBhvDjuy0)
+
+
+## Introduction
+**La mission Apollo peut être vue comme une suite continue de micro-événements ayant une répercussion les uns sur les autres.** Du compte à rebours précédant le lancement de la fusée jusqu’à l’amerrissage de la capsule Apollo le 24 juillet à 16 h 51. Cette suite d’événéments est régie par des processus de communication et un système de cause à effet.
+
+
+## Procédure de lancement
+Dans le cadre du workshop, chaque élève (ou groupe d’élèves) que l’on nommera **«module»** aura en charge une étape de la mission. L’objectif est de proposer une **«résolution»** de cette étape en prenant en compte **une entrée** (input) à réceptionner du groupe précédent et **une sortie** (output) à émettre au groupe suivant. 
+
+1. **Mission**  
+Chaque groupe se verra remettre une enveloppe contenant la description de l’étape, sa position dans la chaîne des événement et un volume scénographique.
+2. **Échelle de représentation**  
+Le groupe doit définir une échelle de représentation en puissance de 10.
+3. **Interface**  
+La résolution de l’étape se traduira par une interface (écran, physique, visuelle) dont les interactions et la scénarisation auront été pensées au préalable.
+4. **Interaction**  
+Chaque groupe devra se mettre en relation avec le précédent et le suivant de façon à définir les entrées et les sorties. Celles-ci pourront être issues de variables physiques, sonores, visuelles.
+6. **Imaginaire et philosophie**  
+Le workshop repose sur la philosophie des [machines de Goldberg](https://www.google.com/search?q=rube+goldberg+machine&sxsrf=ACYBGNTHWHnbQb__6wzuOr1ZHdW5SGPimg:1569505116862&source=lnms&tbm=isch&sa=X&ved=0ahUKEwiIt9qXzu7kAhVwyoUKHd5nBnwQ_AUIEygC&biw=1440&bih=766) ou également de [l’effet domino](https://fr.wikipedia.org/wiki/Effet_domino) qui exprime dans les deux cas une relation entre une cause et un effet.
+
+(link: https://github.com/chevalvert/wokshop-apollo text: La suite sur Github)
+
+----
+
+Gallery:
+
+- >
+  gbusx7fmfij3hijs1lgtz66ibby4lkfsxsndkvph_xuzb3kwlulglw-nzympryrothz1y-cch-a1mljuef7rryxbz6vm7jffdcv5vyfelauwztc0fp1uvlknj8ywdqnp.jpg
+- >
+  dsazks4p6smzh2qq58jwu8aib_kworjkppelwzlhp-gtitbpbflxakahtitgekdjgbx4pgvvsbjfcn6rl16_lg4a3spck0vs_ee1pigahnrjlgfxsoyne0zz5iq-f0z5.jpg
+- >
+  vv40tft__-hdmg9lva8iwsy3rp_lhwssepklko6tbzr5bdvxn3po747gmaljf_t0ihdyejzlds1z01dguv7xpxo-0dhdarrhfgnr1xspik548zb4nr7ltq-re4qpvbz7.jpg
+- >
+  b-zlrt3qhautrspn5hqr9jvabmzkf1jahcrr1deat-usp0grrel2ryu7ujd8udanqz3ttuk33n1f3vmhst86_i6k-h_ge3hl6ipfpm1wfzb7voqlanr39ntj9i5ndln0.jpg
+- >
+  acib6fdqjih-6u3kbnneworto5-km15wwumkictry-htvjowfvgulpp2ibwi5-hvhqc5ycmavcftfiabqfganp0jdwmogisnejnjxr0o3mjfqrmod0joamri1o_fpynx.jpg
+- >
+  syxofhlovptekalet-joq_rqwsngb7ndueykejr6_otu9appr7qsmbhgybiewxn1x_a633yquh_bnud9cnumba_ymzwsy-v87s2qvohbm0n-ltvdefexwnjfccwn24xd.jpg
+- >
+  cty2djoegqxhmnutyh9vq020houhdk0j_ua8hcyvzjcpbp76tmrzajoasyay_rzsyrydc8todajkarpvct1m57f-5tzvboobb6cfrya152xclefu_kb7unmsfp7nukkm.jpg
+
+----
+
+Students: 
+
+----

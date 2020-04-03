@@ -1,0 +1,69 @@
+Title: Aparté
+
+----
+
+Subtitle: 
+
+----
+
+Year: 2016
+
+----
+
+Collective: false
+
+----
+
+Intro: Évidemment, tout change avec le temps, et l’écriture ne saurait échapper à ce principe. Quand les mœurs d’un peuple changent, il est naturel et logique que la manière d’écrire change aussi.
+
+----
+
+Cover:
+
+- vlcsnap-2020-04-02-23h05m30s969.png
+
+----
+
+Video-cover:
+
+- pv-acceuil.mp4
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: 
+
+----
+
+Details:
+
+Aparté est une application de messagerie pour smartphones qui interroge notre rapport à l’écriture du quotidien, celle qu’on nomme écriture conversationnelle. Nos communications écrites tendent à prendre une place aussi importante que nos communications orales dans notre rapport aux autres, c’est pourquoi il est important de questionner ce qu’offrent les applications de messageries massivement utilisées aujourd’hui. Observant une tendance à la gamification ainsi qu’au développement de l’envoi d’images (gifs, memes, stickers, vidéos…), nous pouvons nous poser les questions suivantes : l’écriture serait-elle démunie de tout pouvoir expressif ? Communiquer avec des gifs et autres images préétablies ne mène-t-il pas un appauvrissement de notre capacité à nous exprimer ?
+
+Ici, l’écriture est au cœur même de l’application. À travers l’histoire des formes écrites et ses utilisations contemporaines, deux problématiques récurrentes semblent se dégager : l’écriture doit être aussi rapide que la parole et la forme de l’écriture doit pallier au manque d’expressivité qui découle de l’absence du corps. C’est pourquoi l’application peut s’utiliser sous deux modes accessibles à tout moment : expressif et rapide.
+
+Le mode rapide s’utilise lorsqu’on n’a pas le temps, il dispose d’une fonctionnalité appelée « Gestes » qui permet d’associer un mot ou une phrase courante à des tracés simples. Inspiré de la sténographie, ces gestes tracés sur l’écran permettent d’envoyer en peu de temps un message. 
+
+Le mode expressif s’utilise lors d’une communication plus prolongée et plus intime. Le texte est un objet manipulable, ainsi un message peut être redimensionné, pivoté et positionné n’importe où dans l’espace de conversation. Quatre humeurs sont proposées : le message peut se parer d’une couleur triste, sèche, enjouée ou tendre. Ces humeurs sont signifiées graphiquement par la typographie et la couleur de l’interface. Ce mode dispose aussi d’une fonctionnalité appelée « Bruits » qui permet de simuler un langage non-verbal : en effectuant plusieurs onomatopées au micro, diverses émoticônes apparaissent à l’écran.
+
+L’application est également cryptée, multiplateforme et n’utilise que des fontes open source, dans une volonté de servir une certaine éthique du milieu numérique actuel.
+
+----
+
+Gallery: 
+
+----
+
+Students:
+
+- 
+  name: Pauline Vidal
+  url: ""
+  email: vidalpopy@gmail.com
+  twitter: ""
+
+----
+
+Is-collective: false

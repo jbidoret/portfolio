@@ -1,0 +1,63 @@
+Title: Vidæo
+
+----
+
+Subtitle: 
+
+----
+
+Year: 2018
+
+----
+
+Collective: true
+
+----
+
+Intro: Plateforme de diffusion de conférences, entretiens, captations sonores et vidéo liées aux questions de la création numérique dans les champs de l’art et du design. En partenariat avec accès)s( cultures électroniques.
+
+----
+
+Cover:
+
+- vidaeob.png
+
+----
+
+Video-cover: 
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: 
+
+----
+
+Details:
+
+L’ÉSAD Pyrénées et accès)s( ont décidé de joindre leurs énergies pour développer une plateforme dédiée aux questions liée au numérique dans les champs de l’art et du design. Il s’agit ici de réunir des approches et questionnements pour ouvrir leur consultation au delà du temps des rencontres, des conférences et des propositions artistiques dont elles sont issues, de les prendre disponibles à toute heure, quelque soit l’endroit où nous nous trouvons.
+
+Ce site a été réalisé à l’ÉSAD Pyrénées par Thomas Rouillon, étudiant en 5e année Design graphique multimédia, avec le soutien de Julien Bidoret, grâce à Kirby et IBM Plex.
+
+(link: https://vidaeo.acces-s.org text: //vidaeo.acces-s.org)
+
+----
+
+Gallery: 
+
+----
+
+Students:
+
+- 
+  name: Thomas Rouillon
+  url: ""
+  email: thomrou@live.fr
+  twitter: ""
+
+----
+
+Is-collective: true

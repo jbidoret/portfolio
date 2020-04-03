@@ -1,0 +1,27 @@
+Title: JIMMI
+
+----
+
+Subtitle: Design graphique et interactions : Jeux, interactions, médiations, milieux, interfaces.
+
+----
+
+Intro: Les interactions autorisées par les dispositifs interactifs ont permis d’étendre le champ de la pensée du design de l’objet au dispositif. Il ne s’agit désormais plus, pour les designers, de penser uniquement la forme de l’objet ou sa surface, mais comment cette forme prend sens et s’active dans un environnement particulier (social, culturel, technique), contextualisé et situé.
+
+----
+
+Text:
+
+L’évolution des usages et du rapport à l’objet, notamment permise par le développement des périphériques informatiques, a vu se redistribuer les rôles entre créateur, spectateur et objet/artefact esthétique.
+
+En effet, le contenu généré par l’utilisateur redéfinit la frontière entre l’auteur et le spectateur, consommateur et producteur. L’environnement interactif modifie le rapport entre le spectateur et la nature du moment esthétique, passant du rapport objet/sujet à la relation individu/ expérience. Penser le dispositif, revient pour le designer a réarranger sa pensée du projet, en déplaçant son intervention de l’objet au système dont il dépend.
+
+Nous partirons de la notion de jeu pour envisager la question du dispositif : comme le dispositif, le jeu met en place un espace symbolique où l’adhésion à des règles, la pratique de protocoles, la cohésion collective autour de rituels, les actions des joueurs permet le partage sensible commun d’une expérience esthétique. Une part importante sera accordée à la question de la programmation informatique, envisagée par le biais du creative coding accordant à l’étudiant une autonomie de réalisation plus grande.
+
+Du point de vue des savoirs faire et pour la réalisation de son projet, il sera proposé à l’étudiant d’expérimenter par la pratique le physical computing (capteurs, actionneurs, microcontrôleurs, ...) et les médias interactifs tangibles (interactions, interface tangible, mapping vidéo, ...). Ces compétences lui seront nécessaires pour imaginer des interfaces innovantes, à la plasticité singulière, hybridant matériaux, objets intelligents et information. Cette approche lui permettra de dépasser les lieux communs opposant habituellement le papier et l’écran, le réel et le virtuel, lui ouvrant ainsi un espace des possibles étendu pour la création.
+
+Des propositions communes aux deux axes ou menées alternativement par chacun d’eux sont également faites aux étudiants. Avec le festival accès)s(, dédié depuis 2000 à la diffusion de la création artistique électronique et numérique dans le champ des arts visuels, de la musique et du spectacle vivant, le pôle Nouveaux médias mène depuis 2016 un workshop annuel inaugural, invitant les étudiants du pôle à produire un objet de médiation numérique proposé au public du festival. Cette collaboration permet d’expérimenter les formes et les usages des médias numériques, tant dans leurs dimensions techniques et opérationnelles que culturelles et professionnelles. Au delà de ce workshop dédié, la programmation des workshops de 1er cycle ou liés au double-diplôme est faite en tenant compte des thématiques abordées par les étudiants du pôle qui sont alors invités à y participer.
+
+Des projets ponctuels sont menés dans une logique professionnalisante, un groupe d’étudiants étant accompagné par les enseignants dans la production de projets réels (Machines utopiques en 2017 – 2018, plateforme Vidæo en 2018 – 2019) ou dans le cadre du dispositif des Entrepreneuriales (depuis 2017).
+
+Des journées d’études sont régulièrement organisées au sein du pôle. En 2017, Médias ~ médiations se consacrait à l’exploration des pratiques de médiation numériques dans le champ muséal et culturel. En 2018, Faites vos jeux interrogeait les proximités du jeu et de la création. En 2019, une prochaine journée se consacrera au Web sous l’angle de ses esthétiques, son design et ses usages.

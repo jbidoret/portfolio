@@ -1,0 +1,15 @@
+Title: Écritures numériques
+
+----
+
+Intro: Le web est un élément central d’une révolution numérique qui a profondément transformé notre vie sociale, politique ou intellectuelle en re-configurant notre relation à l’information et à la communication, brouillant les frontières entre émetteur et récepteur, auteur et public. Les designers y ont trouvé un espace d’action privilégié, en y expérimentant de nouvelles formes, défrichant des territoires en évolution constante, participant à la naissance de nouveaux usages, re-définissant les modalités de la circulation des informations. De nouvelles écritures s’inventent dans ce creuset bouillonnant, ou les expérimentations les plus folles côtoient les pratiques professionnelles les plus précises.
+
+----
+
+Text:
+
+L’axe écritures numériques aborde les questions de publication, principalement en ligne, dans la spécificité de leur rapport à leur médium (hypertextualité, interactivité, non linéarité, dimensions multimédia ou transmédia...). Les champs d’intervention possibles peuvent aller du design d’interface à la conception d’expériences utilisateurs, du journalisme documentaire à la fiction interactive, du design des données aux expérimentations animées, graphiques, sonores et textuelles.
+
+Les temps de transmission reposent sur la présentation de projets issus de nombreux champs et disciplines où s’inventent ces nouvelles écritures. Ces présentations permettent d’aborder les différentes approches possibles et de porter un regard analytique sur ces productions. Les temps de production se divisent entre projets collectifs et suivi individualisé au plus proche du projet de l’étudiant, permettant à la fois un accompagnement technique, culturel et critique.
+
+Parallèlement aux activités de l’axe, un atelier de culture numérique est proposé, World wide wouaip. Il est ouvert aux étudiants du pôle, mais plus largement aux étudiants de second cycle, voire d’option art ou de premier cycle. Il aborde des problématiques spécifiques aux productions en ligne, permet de découvrir ou de développer leurs dimensions techniques, culturelles ou politiques. Il est également un lieu de débat et de collaboration entre étudiants.

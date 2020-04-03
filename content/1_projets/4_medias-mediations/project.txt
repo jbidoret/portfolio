@@ -1,0 +1,64 @@
+Title: Médias ~ médiations
+
+----
+
+Subtitle: 
+
+----
+
+Year: 2017
+
+----
+
+Collective: true
+
+----
+
+Intro: Journée d’étude consacrée au design numérique dans la médiation des savoirs, avec Morgane Elbaz, Virginie Pringuet, le studio Indianen, & la diffusion de Grosse fatigue de Camille Henrot. Dans le cadre du cycle Design et médiation des savoirs.
+
+----
+
+Cover:
+
+- >
+  2017-2018-medias-mediations-journee-detude.png
+
+----
+
+Video-cover: 
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: 
+
+----
+
+Details:
+
+Le pôle Nouveaux Médias de l’École supérieure d’art des Pyrénées — site de Pau organise une journée de conférences dédiée au design numérique dans la médiation des savoirs.
+
+Depuis l’émergence d’Internet et son adoption par un très large public, les musées et centres d’art multiplient les initiatives liés à la question du numérique. Que ce soit par la numérisation des collections, la coproduction de contenus par les usagers, l’utilisation des réseaux sociaux, l’ouverture de l’information des collections (open-data)… le savoir associé aux collections des musées s’est infiltré dans tous les canaux de diffusion offerts par l’omniprésence informatique. Les formes et situations proposées dépassent les formats habituels de médiation, de diffusion et de valorisation. Les ressources numériques transforment profondément le rapport à la culture matérielle tant du point de vue des institutions que de celui du public.
+
+Face à cette redistribution de la participation et de la diffusion de la création des savoirs, des problématiques inédites se posent aux designers, aux artistes et aux institutions. La pratique du design graphique se voit redéfinie devant la multiplication des supports, de la diversité d’expériences, l’accroissement du nombre d’acteurs.
+
+Comment alors envisager l’intervention des designers et des artistes dans l’espace médian situé entre le musée et l’usager ?
+
+La journée de conférence que nous proposons se partagera entre plusieurs approches : celle de designers, de porteurs de projets, d’artistes ou de responsables de services de médiation. Une table ronde clôturera la journée, où les intervenants seront amenés à débattre et à répondre aux questions du public.
+
+(link: https://nm.esad-pyrenees.fr/medias-mediations/ text: //nm.esad-pyrenees.fr/medias-mediations)
+
+----
+
+Gallery: 
+
+----
+
+Students: 
+
+----
+
+Is-collective: false

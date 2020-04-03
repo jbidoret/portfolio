@@ -1,0 +1,57 @@
+Title: Dynamiques de l'erreur
+
+----
+
+Subtitle: 
+
+----
+
+Year: 2017
+
+----
+
+Collective: false
+
+----
+
+Intro: L'échec, l'accident, l'erreur ou le hasard font partie des erreurs et des moyens d'ouvrir notre créativité à d'autres voies et à de nouvelles idées par la curiosité et l'adaptation.
+
+----
+
+Cover:
+
+- photo11.jpg
+
+----
+
+Video-cover: 
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: 
+
+----
+
+Details:
+
+Dynamiques de l'erreur propose d'explorer par la création ludique et expérimentale plusieurs idées liées à l'erreur qui peuvent être exploitées à notre avantage, en désacralisant le processus créatif pour le remplacer par une errance sans attentes et une expérimentation motivée uniquement par la curiosité.
+
+Pour ce projet, j'ai souhaité proposer une suite de module d'apprentissage à l'erreur créative, ouverte aux enfants et aux parents. Ces modules sont ont été conçu au sein d'une scénographie qui a pris place dans la Médiathèque centrale André Labarrère à Pau.
+
+----
+
+Gallery: 
+
+----
+
+Students:
+
+- 
+  name: Léa Morales Chanard
+  url: https://www.behance.net/leamoralesa365
+  email: ""
+  twitter: ""

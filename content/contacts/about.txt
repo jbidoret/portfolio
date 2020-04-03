@@ -1,0 +1,36 @@
+Title: Contacts
+
+----
+
+Text:
+
+Pôle Nouveaux médias
+École supérieure d’art et de design des Pyrénées — Pau Tarbes
+2 rue Mathieu Lalanne
+64000 PAU
+05 59 02 20 06
+
+(email: julien.bidoret@esad-pyrenees.fr, julien.drochon@esad-pyrenees.fr text: e-mail )
+
+----
+
+Team:
+
+- 
+  name: Julien Bidoret
+  bio: ""
+- 
+  name: Jean-Marie Blanchet
+  bio: ""
+- 
+  name: Pauline Chasseriaud
+  bio: ""
+- 
+  name: Julien Drochon
+  bio: ""
+- 
+  name: Vincent Meyer
+  bio: ""
+- 
+  name: Jean Paul Labro
+  bio: ""

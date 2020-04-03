@@ -1,0 +1,61 @@
+Title: Vox machines
+
+----
+
+Subtitle: Voix, écritures, transcriptions, design graphique et design d’interaction à l’heure de la performativité de l’écrit.
+
+----
+
+Collective: true
+
+----
+
+Intro: Ce programme de recherche vise à explorer les possibilités et limites offertes par la synthèse vocale, dans le champ du design expérimental, tant du point de vue de la réalisation de prototypes logiciels et matériels que de celui des humanités numériques.
+
+----
+
+Cover:
+
+- capture-decran-2020-04-03-a-01.32.37.png
+
+----
+
+Video-cover: 
+
+----
+
+Youtube-cover: 
+
+----
+
+Vimeo-cover: 
+
+----
+
+Details:
+
+Avec la démocratisation des techniques de prototypage rapide, dont les fablabs (laboratoires de fabrication) constituent depuis une dizaine d’années l’emblème le plus médiatisé, le do it yourself connaît un regain d’intérêt (Golsenne Thomas, Patricia Ribault). Si ces techniques et principes de co-construction, par le partage de la connaissance, ont trouvé des premières applications dans le design d’objet, peu d’initiatives émergent dans le domaine du design graphique. Outre son rapprochement avec le design d’interaction et d’interfaces, ces méthodes de conception permettent pourtant une ouverture de la pratique du design graphique (Andrew Blauvelt, Ellen Lupton) vers d’autres publics, d’autres formes, d’autres situations que celles autorisées par les supports sur lesquelles elle se déploie habituellement (papier ou écran) – et par là invitent à constituer des communautés de savoir et de pratiques citoyens.
+
+Pourtant, au quotidien, nous ne percevons surtout des « poussées techniques » (Pierre-Damien Huyghe) du numérique que des pseudo formes standardisées recouvrant les algorithmes propriétaires dictés par les grands groupes de l’industrie informatique (Evgeny Morozov, Benjamin Bratton). Ainsi, dans le champ du design de services, les assistants personnels vocaux (Amazon Alexa, Apple Siri, Microsoft Cortana, Google Home, etc.) développés commercialement depuis une dizaine d’année ont récemment été incorporés dans des objets « boîte noire » autonomes (Amazon Echo, enceintes Google Now, etc.). Ces derniers incarnent un possible développement des façons dont nous interagissons avec des objets connectés au réseau (vêtements, véhicules, écrans, domotique, etc.), pour le meilleur et pour le pire (Jehanne Dautrey, Emanuele Quinz).
+
+Au-delà d’une possible perte de contrôle sur nos environnements techniques (Anthony Masure), ce mouvement peut être compris comme le signe d’une possible disparition des interfaces graphiques, inventées au début des années 1970 et fortement liées au succès de l’informatique personnelle (Alexander R. Galloway). Parallèlement, l’intense utilisation des terminaux numériques mobiles a entraîné des modifications dans les relations à l’écrit. Au-delà des débats liés à un possible retrait de l’écriture manuscrite, nous pouvons observer de nouvelles pratiques (emojis, images conversationnelles, etc.) qui rapprochent l’écriture et l’image de la performativité de la parole (Jack Goody, André Gunthert).
+
+Dès lors, comment le rôle des designers graphiques est-il redéfini par le développement de ces voix faites images, et des « commandes » vocales par définition invisibles ? Quelles alternatives peut-on envisager à ce paradigme cybernétique d’un pilotage global (Giorgio Agamben, Norbert Wiener) ? Quelles possibilités sensibles et formelles inédites, entre locution et visualisation (Walter J. Ong, John Hartley, Jean Lassègue), ces techniques autorisent-elles ? Quelles propositions plus « ouvertes » (Gilbert Simondon) existe-t-il pour développer, autour de la voix et du numérique, des objets destinés à la recherche et à l'éducation dans les champs de l’art et du design ?
+
+(link: https://recherche.esad-pyrenees.fr/vox-machines/ text: //recherche.esad-pyrenees.fr/vox-machines/)
+
+----
+
+Gallery: 
+
+----
+
+Students: 
+
+----
+
+Is-collective: true
+
+----
+
+Is-on-home: false
