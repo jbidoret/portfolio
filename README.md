@@ -8,6 +8,8 @@ Voir https://github.com/jbidoret/portfolio/
 
 Variante du projet “portfolio” adaptée au contexte du site du pôle Nouveaux médias
 
+![maquette sommaire du site](nm.png)
+
 https://nm.esad-pyrenees.fr
 
 ## Processus et documentation
