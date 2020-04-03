@@ -1,0 +1,19 @@
+title: À propos
+preset: page
+fields:
+  text:
+    label: Text
+    type: textarea
+    size: medium
+
+  team:
+    # Un champ de type “structure” permet de stocker des infos pour un ou plusieurs membres
+    type: structure
+    label: Équipe
+    fields:
+      name:
+        type: text
+        label: Nom
+      bio:
+        type: textarea
+        label: biographie

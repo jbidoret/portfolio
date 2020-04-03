@@ -1,3 +1,12 @@
 title: Site
-preset: pages
-unlisted: true
+
+# Une section qui contient toutes les sous-pages
+sections:
+  pages:
+    type: pages
+    # On limite les sous-pages aux templates home, projects, program et about
+    templates: 
+      - home
+      - projects
+      - program
+      - about

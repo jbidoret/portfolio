@@ -1,0 +1,17 @@
+title: Programme
+
+# Le programme a deux sections
+sections:
+  # La première contient les “sous-pages”
+  pages:
+    type: pages
+    layout: list
+    # et seules des pages de type “default” peuvent y être créées
+    templates: 
+      - default
+  infos:
+    # Un champ de texte long pour le texte d’intro (avant les sous-pages)
+    type: fields
+    fields:
+      intro:
+        type: textarea

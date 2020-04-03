@@ -1,0 +1,11 @@
+title: Projets
+
+# Une section qui contient toutes les sous-pages
+sections:
+  pages:
+    type: pages
+    # Mise en page sous forme de “cards” (pas de liste)
+    layout: cards
+    # On limite les sous-pages aux templates “project”
+    templates: 
+      - project

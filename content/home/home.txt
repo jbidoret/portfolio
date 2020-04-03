@@ -1,1 +1,11 @@
-Title: Home
+Title: Accueil
+
+----
+
+Splash-provider: vimeo
+
+----
+
+Splash-url: https://vimeo.com/373774450/47fd9ea4c7
+
+----

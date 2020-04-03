@@ -1,0 +1,89 @@
+title: Projet
+
+# Layout plus complexe, organisé avec deux colonnes
+columns:
+
+  # Première colonne :
+  - width: 2/3
+    fields:
+      # Sur une seule ligne (2/4 + 1/4 + 1/4) : sous-titre, année et “est-ce que le projet est un projet collectif ?”
+      subtitle:
+        type: text
+        width : 2/4
+      year:
+        type: number
+        width : 1/4
+      collective:
+        type: toggle
+        width : 1/4
+      # Introduction textuelle
+      intro:
+        type: textarea
+      # Les différentes possibilités d’image ou vidéo splash/couverture
+      # Image :
+      cover:
+        type: files
+        label: Couverture
+        multiple: false
+        width : 1/2
+      # Fichier vidéo :
+      video_cover:
+        type: files
+        max: 1
+        label: Couverture vidéo 
+        width : 1/2
+      # Vidéo Youtube :
+      youtube_cover:
+        type: url
+        label: Couverture YT 
+        width : 1/2
+      # Vidéo Vimeo :
+      vimeo_cover:
+        type: url
+        label: Couverture Vimeo
+        width : 1/2
+      # Détails textuels
+      details:
+        type: textarea
+  
+  # Deuxième colonne :
+  - width: 1/3
+    # Organisée en deux “sections”
+    # En savoir plus sur les sections ici : https://getkirby.com/docs/reference/panel/sections
+    sections:
+      # Une première section pour stocker des infos (elle est de type “fields”)
+      data:  
+        type: fields
+        fields:     
+          # Une galerie d’images 
+          gallery:
+            type: files
+            label: Galerie
+            multiple: true
+            # Cette “query” limite la sélection de fichiers aux images (= pas de vidéo)
+            query: page.images
+
+          # Pour les étudiants, une “structure” qui permet de stocker des infos pour un ou plusieurs étudiants
+          students:
+            type: structure
+            label: Étudiants
+            fields: 
+              name: 
+                type: text
+                label: Nom
+              url:
+                type: url
+                label: URL
+              email:
+                type: email
+                label: E-mail
+              twitter:
+                type: text
+                label: Twitter
+                # On peut faire le malin et ajouter en début de champ une info qui aide l’utilisateur
+                # Ici, on attend le nom du compte, pas l’URL
+                before: "@"
+
+      # Une deuxième section pour uploader des fichiers (elle est de type “files”)
+      files:
+        type: files

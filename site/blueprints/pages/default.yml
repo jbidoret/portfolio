@@ -1,8 +1,19 @@
-title: Default Page
+title: Page
+
+# Ce blueprint a un preset “page”
+# Voir les presets ici : https://getkirby.com/docs/guide/blueprints/presets
 preset: page
+
+# Les champs pour les pages par défaut
 fields:
+  subtitle:
+    type: text
+    label: Sous-titre
+  intro:
+    type: textarea
+    label: Introduction
+    size: small
   text:
     label: Text
     type: textarea
     size: large
-

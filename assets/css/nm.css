@@ -1,0 +1,323 @@
+
+/* Fonts
+------------------------------------------------------- */
+
+@font-face {
+    font-family: 'LarishNeueSemibold';
+    src: url('../fonts/LarishNeueSemibold-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+    text-rendering: optimizeLegibility;
+}
+@font-face {
+    font-family: 'Space Mono';
+    src: url('../fonts/SpaceMono-BoldItalic.woff2') format('woff2'),
+        url('../fonts/SpaceMono-BoldItalic.woff') format('woff');
+    font-weight: bold;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Space Mono';
+    src: url('../fonts/SpaceMono-Italic.woff2') format('woff2'),
+        url('../fonts/SpaceMono-Italic.woff') format('woff');
+    font-weight: normal;
+    font-style: italic;
+}
+
+@font-face {
+    font-family: 'Space Mono';
+    src: url('../fonts/SpaceMono-Bold.woff2') format('woff2'),
+        url('../fonts/SpaceMono-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Space Mono';
+    src: url('../fonts/SpaceMono-Regular.woff2') format('woff2'),
+        url('../fonts/SpaceMono-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Variables CSS
+------------------------------------------------------- */
+
+:root {
+    --big: calc(1.5em + 1.5vw);
+    --space: 40px;
+}
+
+/* Communs
+------------------------------------------------------- */
+
+* { box-sizing: border-box }
+
+body {
+    font-family: 'Space Mono', monospace;
+    font-size: .85em;
+    background-color: #eee;
+    margin: 0;
+    color: #333;    
+    line-height: 1.4;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #fff;
+    background-blend-mode: multiply;
+    background-size: calc(2 / 3 * 80% - 20px) auto;
+    background-attachment: fixed;
+}
+
+
+/* Communs
+------------------------------------------------------- */
+
+a {
+    color: inherit;
+    text-decoration: underline;
+}
+a:hover {
+    cursor: url("../img/cursor.svg") 10 10, auto;
+}
+
+h1,
+h2,
+h3,
+p,
+ul {
+    font-size: 1em;
+    font-weight: normal;
+    margin: 0;
+}
+
+ul {
+    margin: 1.4em 0;
+    list-style-position: inside;
+    padding: 0;
+}
+
+figure { margin: 0; padding: 0;}
+img { max-width: 100%;}
+
+
+/* Mise en page
+------------------------------------------------------- */
+
+#header {
+    position: fixed;
+    top: var(--space);
+    left: var(--space);
+}
+#page {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+}
+main {
+    grid-column-start: 2;
+}
+
+
+/* Headers
+------------------------------------------------------- */
+
+#title a , #header a {
+    text-decoration: none;
+}
+#header a:hover { color: tomato;}
+
+#title { 
+    padding: 0;
+}
+#title h1 {
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: calc(1em + 4vw);
+    line-height: 1;
+    margin: 0;
+    color:#fff
+}
+#title a {
+    display: block;
+    padding: var(--space);
+}
+#title a:hover { background: tomato;}
+
+/* Navigation
+------------------------------------------------------- */
+
+#nav{
+    background-color: #d5d5d5;    
+    padding: 20px var(--space) 20px;
+    position: sticky;
+    top:-2px;
+    z-index: 100;
+}
+#nav[stuck]::after{
+    content:"↑";
+    position: absolute;
+    right:0;
+    top:0;
+    padding: 20px var(--space) 
+}
+#nav ul {
+    display: flex;
+    list-style: none;
+    padding: 0; margin:0;
+}
+#nav li {
+    margin: 0 1em 0 0;
+}
+#nav a { color: #000; }
+
+
+/* Équipe
+------------------------------------------------------- */
+
+.team span { white-space: nowrap;}
+.team span:not(:last-child):after{
+    content:", "
+}
+
+/* Sections
+------------------------------------------------------- */
+
+section {
+    padding: var(--space);
+    background: #cacaca;
+    color: #000;
+}
+section:nth-child(2n +1) {
+    background: #333;
+    color: #ddd;
+}
+
+section h2,
+section h3,
+section p,
+section ul,
+section ol,
+section blockquote  {
+    max-width: 45em;
+    margin-bottom: 1.5em;
+    padding-right: var(--space);
+}
+section *:last-child { margin-bottom: 0;}
+section h3 {
+    margin:0 0 0 var(--space);
+}
+section h3::before { content: "# "; ;}
+
+.images,
+.splash { padding:0 }
+.splash img { display: block; width: 100%;}
+
+
+/* programs
+------------------------------------------------------- */
+
+.program header {
+    position: relative;     
+}
+.program h2 { 
+    font-size: var(--big);
+    margin: 0;
+    color: black;
+}
+.program figure + h2 {
+    position: absolute; 
+    bottom: 60px;
+}
+.bmap { 
+    position: relative; 
+    display: inline-block; 
+    padding: 0;     
+    z-index: 0;
+    background: white;
+}
+
+.program .bmap {
+    background-color: grey;
+}
+.program .bmap {
+    margin: calc( -1 * var(--space)) calc(-1 * var(--space)) 1.5em; 
+    width: calc(100% + var(--space) * 2 ); 
+}
+.bmap canvas { display: block;}
+.bmap img { opacity: 0; display: block; width: 100%;}
+.overcanvas + img { display: none;}
+
+.project .bmap::after {
+    content: "";
+    display: block;
+    position: absolute;
+    top:0; left:0; right: 0; bottom: 0;
+    mix-blend-mode: screen;
+    background: tomato;
+}
+
+/* .project:nth-child(1n) .bmap::after { background: red}
+.project:nth-child(2n) .bmap::after { background: hotpink}
+.project:nth-child(3n) .bmap::after { background: lime}
+.project:nth-child(4n) .bmap::after { background: crimson}
+.project:nth-child(5n) .bmap::after { background: lightsteelblue}
+.project:nth-child(6n) .bmap::after { background: indigo}
+.project:nth-child(7n) .bmap::after { background: tomato} */
+
+
+/* projects
+------------------------------------------------------- */
+
+.projects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: var(--space);
+}
+
+
+/* project
+------------------------------------------------------- */
+
+.project-title h1 + h2 {
+    margin: 1em 0 0;
+}
+.project-title h1 + h2:before { content: "# ";}
+
+
+/* slideshows
+------------------------------------------------------- */
+
+/* no circle */
+.flickity-button, .flickity-button:hover {
+    background: transparent;
+}
+.flickity-button-icon {
+    fill: white;
+}
+.slideshow-item {
+    width: 100%; /* full width */
+    height: calc(66vw * 9 / 16); /* height of carousel */
+}
+.slideshow-item img {
+    height: 100%;
+    width: 100%; 
+    object-fit: cover;
+}
+  
+
+/* Responsive : )
+------------------------------------------------------- */
+
+@media screen and (max-width:950px){
+    #page { display: block; }
+    #header { position: static; padding: var(--space);}
+    #header br { display: none; }
+}
+
+@media screen and (max-width:630px){
+    .projects { grid-template-columns: 1fr; }    
+}
+
+@media screen and (max-width:450px){
+    :root { --space: 20px }
+}

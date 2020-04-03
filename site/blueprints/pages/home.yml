@@ -1,0 +1,17 @@
+title: Accueil
+
+fields:
+  # Seule donnée attachée directement à la page d‘accueil, la vidéo “splash” d’intro
+  # Le player vidéo nécessite de connaitre la plateforme…
+  splash_provider:
+    type: select
+    label: Plateforme
+    width: 1/4
+    options:
+      - vimeo
+      - youtube
+  # Et l’URL
+  splash_url:
+    type: url
+    label: URL 
+    width: 3/4
