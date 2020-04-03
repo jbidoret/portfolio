@@ -6,7 +6,7 @@ Voir https://github.com/jbidoret/portfolio/
 
 ## Pôle Nouveaux médias
 
-Variante du projet “portfolio” adaptée au context du site du pôle Noveaux médias
+Variante du projet “portfolio” adaptée au context du site du pôle Nouveaux médias
 
 https://nm.esad-pyrenees.fr
 

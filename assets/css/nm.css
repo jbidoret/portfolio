@@ -237,7 +237,7 @@ section h3::before { content: "# "; ;}
 }
 
 .program .bmap {
-    background-color: grey;
+    background-color: tomato;
 }
 .program .bmap {
     margin: calc( -1 * var(--space)) calc(-1 * var(--space)) 1.5em; 
