@@ -1,0 +1,266 @@
+/*
+
+Kirbyxhibit
+Thanks to Kirby Starterkit by Bastian Allgeier / Sascha Lack (http://getkirby.com)
+A tribute to Indexhibit by Daniel Eatock and Jeffery Vaska 
+Big hugs to Greg Cadars
+
+Updated for Kirby 3.6
+Author:  Julien Bidoret
+URL:     http://accentgrave.net
+Twitter: @julienbidoret
+
+*/
+
+
+
+
+/* Hard reset
+-------------------------------------------------- */
+*, *:before, *:after {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-sizing: border-box;
+}
+article, aside, details, figcaption, figure,
+footer, header, hgroup, main, nav, section, summary {
+    display: block;
+}
+
+
+/* Pix
+-------------------------------------------------- */
+img {
+    display: block;
+    max-width: 100%;
+}
+
+
+/* Links
+-------------------------------------------------- */
+a {
+    color: currentColor;
+    text-decoration: underline;
+    text-underline-offset: 20%;
+    transition: color .3s, background .3s, border .3s;
+}
+a:hover {
+    color: black;
+}
+
+
+/* Site
+-------------------------------------------------- */
+html {
+   -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    }
+body {
+    margin: 0 auto;
+    font-family: sans-serif;
+    font-size: 1em;
+    line-height: 1.5;
+    background: #fff;
+    color: #222;
+    overflow-x: hidden;
+    }
+
+
+
+/* Page
+-------------------------------------------------- */
+.page {
+    display: flex;
+    flex-direction: column;
+    }
+
+/* Header
+-------------------------------------------------- */
+.header {
+    padding: 1.5rem;
+    background: white;
+    }
+.header a {
+    color: #000;
+    }
+.logo {
+    font-weight: 700;
+    display: block;
+    margin-bottom: 1.5em;
+    }
+
+
+/* Navigation
+-------------------------------------------------- */
+
+nav span {
+    display: block;
+    margin-bottom: .25em;
+    }
+.submenu{
+    margin-left: .5em;
+}
+nav .active:before {
+    content:"→ ";
+    }
+
+/* Headings
+-------------------------------------------------- */
+h1 {
+    font-size: 1em;
+    font-weight: 700;
+    margin-bottom: 1.5em;
+    }
+h2 {
+    font-size: 1em;
+    font-weight: 700;
+    margin-bottom: 1.5em;
+    }
+h3 {
+    font-size: 1em;
+    font-weight: 400;
+    margin-bottom: 1.5em;
+    }
+h4 {
+    font-size: 1em;
+    font-weight: 400;
+    margin-bottom: .5em;
+    }
+h1 a, h2 a, h3 a, h4 a {
+    color: inherit;
+    border: 0 !important;
+    }
+
+
+/* Lists
+-------------------------------------------------- */
+
+ul {
+    list-style-position: inside;
+}
+
+
+/* Main
+-------------------------------------------------- */
+main {
+    padding: 1.5rem;
+    flex: 1;
+    }
+
+
+.main > :first-child { margin-top: 0;}
+.main hr {
+    margin: 3em 0;
+    height: 1px;
+    width: 3em;
+    background: #000;
+    }
+.main p,
+.main figure,
+.main ul,
+.main ol {
+    margin-bottom: 1.5em;
+    }
+.main a {
+    color: black;
+    border-bottom:1px solid #aaa ;
+    }
+.main a:hover {
+    border-color: #222;
+    }
+
+/* Text blocks */
+.text p,
+.text ul,
+.text ol {
+    max-width: 45em;
+    }
+
+.text ul { 
+    list-style: none;
+    }
+.text ul li:before { 
+    content: "– ";
+    }
+
+.text ol {
+    margin-left: 1em;
+    }
+
+/* Main gallery
+-------------------------------------------------- */
+.project-gallery figure{
+    margin: 1em 0 2em;
+}
+/* Project meta
+-------------------------------------------------- */
+.meta {
+    margin-bottom: 1.5em;
+    }
+.meta li {
+    float: left;
+    list-style: none;
+    margin-right: 2em;
+    }
+.meta li b {
+    font-weight: 400;
+    color: #000;
+    padding-right: .25em;
+    }
+
+
+/* Home
+-------------------------------------------------- */
+.a_la_une img {
+    display: block;
+    margin: 1em 0 .5em;
+    }
+
+
+/* Next/Prev nav
+-------------------------------------------------- */
+.nextprev {
+    padding: 1em 0;
+    }
+.nextprev a {
+    border: 0;
+    }
+.nextprev .prev + .nextprev .next {
+    margin-left: 1em;
+    }
+
+
+/* Footer
+-------------------------------------------------- */
+.footer {
+    padding: 1rem 1.5rem 6rem 4rem;
+    font-size: .75em;
+    }
+
+.footer a {
+    color: black;
+    border-bottom:1px solid #aaa ;
+    }
+.footer a:hover {
+    border-color: #222;
+    }
+
+
+/* Media queries
+-------------------------------------------------- */
+@media screen and (min-width: 48.25em) {
+    .page {
+        flex-direction: row;
+    }
+    a.menu-link {
+        display: none;
+        }
+    .header {
+        width: 16rem;
+        height: 100vh;
+        position: sticky;
+        top: 0
+        }
+    
+    }
