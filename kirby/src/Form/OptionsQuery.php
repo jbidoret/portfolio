@@ -27,28 +27,69 @@ class OptionsQuery
 {
     use Properties;
 
+    /**
+     * @var array
+     */
     protected $aliases = [];
+
+    /**
+     * @var array
+     */
     protected $data;
+
+    /**
+     * @var array|string|null
+     */
     protected $options;
+
+    /**
+     * @var string
+     */
     protected $query;
+
+    /**
+     * @var mixed
+     */
     protected $text;
+
+    /**
+     * @var mixed
+     */
     protected $value;
 
+    /**
+     * OptionsQuery constructor
+     *
+     * @param array $props
+     */
     public function __construct(array $props)
     {
         $this->setProperties($props);
     }
 
+    /**
+     * @return array
+     */
     public function aliases(): array
     {
         return $this->aliases;
     }
 
+    /**
+     * @return array
+     */
     public function data(): array
     {
         return $this->data;
     }
 
+    /**
+     * @param string $object
+     * @param string $field
+     * @param array $data
+     * @return string
+     * @throws \Kirby\Exception\NotFoundException
+     */
     protected function template(string $object, string $field, array $data)
     {
         $value = $this->$field();
@@ -61,9 +102,12 @@ class OptionsQuery
             $value = $value[$object];
         }
 
-        return Str::template($value, $data);
+        return Str::safeTemplate($value, $data);
     }
 
+    /**
+     * @return array
+     */
     public function options(): array
     {
         if (is_array($this->options) === true) {
@@ -89,11 +133,18 @@ class OptionsQuery
         return $this->options = $options;
     }
 
+    /**
+     * @return string
+     */
     public function query(): string
     {
         return $this->query;
     }
 
+    /**
+     * @param $object
+     * @return mixed|string|null
+     */
     public function resolve($object)
     {
         // fast access
@@ -111,6 +162,10 @@ class OptionsQuery
         return 'item';
     }
 
+    /**
+     * @param $result
+     * @throws \Kirby\Exception\InvalidArgumentException
+     */
     protected function resultToCollection($result)
     {
         if (is_array($result)) {
@@ -133,36 +188,69 @@ class OptionsQuery
         return $result;
     }
 
-    protected function setAliases(array $aliases = null)
+    /**
+     * @param array|null $aliases
+     * @return $this
+     */
+    protected function setAliases(?array $aliases = null)
     {
         $this->aliases = $aliases;
         return $this;
     }
 
+    /**
+     * @param array $data
+     * @return $this
+     */
     protected function setData(array $data)
     {
         $this->data = $data;
         return $this;
     }
 
+    /**
+     * @param array|string|null $options
+     * @return $this
+     */
+    protected function setOptions($options = null)
+    {
+        $this->options = $options;
+        return $this;
+    }
+
+    /**
+     * @param string $query
+     * @return $this
+     */
     protected function setQuery(string $query)
     {
         $this->query = $query;
         return $this;
     }
 
+    /**
+     * @param mixed $text
+     * @return $this
+     */
     protected function setText($text)
     {
         $this->text = $text;
         return $this;
     }
 
+    /**
+     * @param mixed $value
+     * @return $this
+     */
     protected function setValue($value)
     {
         $this->value = $value;
         return $this;
     }
 
+    /**
+     * @return mixed
+     */
     public function text()
     {
         return $this->text;
@@ -173,6 +261,9 @@ class OptionsQuery
         return $this->options();
     }
 
+    /**
+     * @return mixed
+     */
     public function value()
     {
         return $this->value;

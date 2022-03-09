@@ -1,17 +1,22 @@
 <?php
 
 use Kirby\Cms\App;
+use Kirby\Cms\Collection;
 use Kirby\Cms\File;
-use Kirby\Cms\Filename;
 use Kirby\Cms\FileVersion;
 use Kirby\Cms\Template;
 use Kirby\Data\Data;
+use Kirby\Email\PHPMailer as Emailer;
+use Kirby\Filesystem\F;
+use Kirby\Filesystem\Filename;
 use Kirby\Http\Server;
+use Kirby\Http\Uri;
+use Kirby\Http\Url;
 use Kirby\Image\Darkroom;
 use Kirby\Text\Markdown;
 use Kirby\Text\SmartyPants;
 use Kirby\Toolkit\A;
-use Kirby\Toolkit\F;
+use Kirby\Toolkit\Str;
 use Kirby\Toolkit\Tpl as Snippet;
 
 return [
@@ -23,9 +28,7 @@ return [
      * @param string $url Relative or absolute URL
      * @param string|array $options An array of attributes for the link tag or a media attribute string
      */
-    'css' => function (App $kirby, string $url, $options = null): string {
-        return $url;
-    },
+    'css' => fn (App $kirby, string $url, $options = null): string => $url,
 
 
     /**
@@ -52,6 +55,17 @@ return [
     },
 
     /**
+     * Add your own email provider
+     *
+     * @param \Kirby\Cms\App $kirby Kirby instance
+     * @param array $props
+     * @param bool $debug
+     */
+    'email' => function (App $kirby, array $props = [], bool $debug = false) {
+        return new Emailer($props, $debug);
+    },
+
+    /**
      * Modify URLs for file objects
      *
      * @param \Kirby\Cms\App $kirby Kirby instance
@@ -66,28 +80,35 @@ return [
      * Adapt file characteristics
      *
      * @param \Kirby\Cms\App $kirby Kirby instance
-     * @param \Kirby\Cms\File|\Kirby\Cms\FileModifications $file The file object
+     * @param \Kirby\Cms\File|\Kirby\Filesystem\Asset $file The file object
      * @param array $options All thumb options (width, height, crop, blur, grayscale)
-     * @return \Kirby\Cms\File|\Kirby\Cms\FileVersion
+     * @return \Kirby\Cms\File|\Kirby\Cms\FileVersion|\Kirby\Filesystem\Asset
      */
     'file::version' => function (App $kirby, $file, array $options = []) {
+        // if file is not resizable, return
         if ($file->isResizable() === false) {
             return $file;
         }
 
         // create url and root
         $mediaRoot = dirname($file->mediaRoot());
-        $dst       = $mediaRoot . '/{{ name }}{{ attributes }}.{{ extension }}';
-        $thumbRoot = (new Filename($file->root(), $dst, $options))->toString();
+        $template  = $mediaRoot . '/{{ name }}{{ attributes }}.{{ extension }}';
+        $thumbRoot = (new Filename($file->root(), $template, $options))->toString();
         $thumbName = basename($thumbRoot);
-        $job       = $mediaRoot . '/.jobs/' . $thumbName . '.json';
 
+        // check if the thumb already exists
         if (file_exists($thumbRoot) === false) {
+
+            // if not, create job file
+            $job = $mediaRoot . '/.jobs/' . $thumbName . '.json';
+
             try {
                 Data::write($job, array_merge($options, [
                     'filename' => $file->filename()
                 ]));
             } catch (Throwable $e) {
+                // if thumb doesn't exist yet and job file cannot
+                // be created, return
                 return $file;
             }
         }
@@ -107,9 +128,7 @@ return [
      * @param string $url Relative or absolute URL
      * @param string|array $options An array of attributes for the link tag or a media attribute string
      */
-    'js' => function (App $kirby, string $url, $options = null): string {
-        return $url;
-    },
+    'js' => fn (App $kirby, string $url, $options = null): string => $url,
 
     /**
      * Add your own Markdown parser
@@ -117,12 +136,17 @@ return [
      * @param \Kirby\Cms\App $kirby Kirby instance
      * @param string $text Text to parse
      * @param array $options Markdown options
-     * @param bool $inline Whether to wrap the text in `<p>` tags
+     * @param bool $inline Whether to wrap the text in `<p>` tags (deprecated: set via $options['inline'] instead)
      * @return string
+     * @todo add deprecation warning for $inline parameter in 3.7.0
+     * @todo remove $inline parameter in in 3.8.0
      */
     'markdown' => function (App $kirby, string $text = null, array $options = [], bool $inline = false): string {
         static $markdown;
         static $config;
+
+        // support for the deprecated fourth argument
+        $options['inline'] ??= $inline;
 
         // if the config options have changed or the component is called for the first time,
         // (re-)initialize the parser object
@@ -131,7 +155,108 @@ return [
             $config   = $options;
         }
 
-        return $markdown->parse($text, $inline);
+        return $markdown->parse($text, $options['inline']);
+    },
+
+    /**
+     * Add your own search engine
+     *
+     * @param \Kirby\Cms\App $kirby Kirby instance
+     * @param \Kirby\Cms\Collection $collection Collection of searchable models
+     * @param string $query
+     * @param mixed $params
+     * @return \Kirby\Cms\Collection|bool
+     */
+    'search' => function (App $kirby, Collection $collection, string $query = null, $params = []) {
+        if (empty(trim($query)) === true) {
+            return $collection->limit(0);
+        }
+
+        if (is_string($params) === true) {
+            $params = ['fields' => Str::split($params, '|')];
+        }
+
+        $defaults = [
+            'fields'    => [],
+            'minlength' => 2,
+            'score'     => [],
+            'words'     => false,
+        ];
+
+        $options     = array_merge($defaults, $params);
+        $collection  = clone $collection;
+        $searchWords = preg_replace('/(\s)/u', ',', $query);
+        $searchWords = Str::split($searchWords, ',', $options['minlength']);
+        $lowerQuery  = Str::lower($query);
+        $exactQuery  = $options['words'] ? '(\b' . preg_quote($query) . '\b)' : preg_quote($query);
+
+        if (empty($options['stopwords']) === false) {
+            $searchWords = array_diff($searchWords, $options['stopwords']);
+        }
+
+        $searchWords = array_map(function ($value) use ($options) {
+            return $options['words'] ? '\b' . preg_quote($value) . '\b' : preg_quote($value);
+        }, $searchWords);
+
+        $preg    = '!(' . implode('|', $searchWords) . ')!i';
+        $results = $collection->filter(function ($item) use ($query, $preg, $options, $lowerQuery, $exactQuery) {
+            $data = $item->content()->toArray();
+            $keys = array_keys($data);
+            $keys[] = 'id';
+
+            if (is_a($item, 'Kirby\Cms\User') === true) {
+                $keys[] = 'name';
+                $keys[] = 'email';
+                $keys[] = 'role';
+            } elseif (is_a($item, 'Kirby\Cms\Page') === true) {
+                // apply the default score for pages
+                $options['score'] = array_merge([
+                    'id'    => 64,
+                    'title' => 64,
+                ], $options['score']);
+            }
+
+            if (empty($options['fields']) === false) {
+                $fields = array_map('strtolower', $options['fields']);
+                $keys   = array_intersect($keys, $fields);
+            }
+
+            $item->searchHits  = 0;
+            $item->searchScore = 0;
+
+            foreach ($keys as $key) {
+                $score = $options['score'][$key] ?? 1;
+                $value = $data[$key] ?? (string)$item->$key();
+
+                $lowerValue = Str::lower($value);
+
+                // check for exact matches
+                if ($lowerQuery == $lowerValue) {
+                    $item->searchScore += 16 * $score;
+                    $item->searchHits  += 1;
+
+                // check for exact beginning matches
+                } elseif ($options['words'] === false && Str::startsWith($lowerValue, $lowerQuery) === true) {
+                    $item->searchScore += 8 * $score;
+                    $item->searchHits  += 1;
+
+                // check for exact query matches
+                } elseif ($matches = preg_match_all('!' . $exactQuery . '!i', $value, $r)) {
+                    $item->searchScore += 2 * $score;
+                    $item->searchHits  += $matches;
+                }
+
+                // check for any match
+                if ($matches = preg_match_all($preg, $value, $r)) {
+                    $item->searchHits  += $matches;
+                    $item->searchScore += $matches * $score;
+                }
+            }
+
+            return $item->searchHits > 0;
+        });
+
+        return $results->sort('searchScore', 'desc');
     },
 
     /**
@@ -200,13 +325,16 @@ return [
      * Add your own thumb generator
      *
      * @param \Kirby\Cms\App $kirby Kirby instance
-     * @param string $src The root of the original file
-     * @param string $dst The root to the desired destination
+     * @param string $src Root of the original file
+     * @param string $dst Template string for the root to the desired destination
      * @param array $options All thumb options that should be applied: `width`, `height`, `crop`, `blur`, `grayscale`
      * @return string
      */
     'thumb' => function (App $kirby, string $src, string $dst, array $options): string {
-        $darkroom = Darkroom::factory(option('thumbs.driver', 'gd'), option('thumbs', []));
+        $darkroom = Darkroom::factory(
+            option('thumbs.driver', 'gd'),
+            option('thumbs', [])
+        );
         $options  = $darkroom->preprocess($src, $options);
         $root     = (new Filename($src, $dst, $options))->toString();
 
@@ -220,13 +348,53 @@ return [
      * Modify all URLs
      *
      * @param \Kirby\Cms\App $kirby Kirby instance
-     * @param string $path URL path
-     * @param array|null $options Array of options for the Uri class
-     * @param Closure $originalHandler Callback function to the original URL handler with `$path` and `$options` as parameters
+     * @param string|null $path URL path
+     * @param array|string|null $options Array of options for the Uri class
      * @return string
      */
-    'url' => function (App $kirby, string $path = null, $options = [], Closure $originalHandler): string {
-        return $originalHandler($path, $options);
+    'url' => function (App $kirby, string $path = null, $options = null): string {
+        $language = null;
+
+        // get language from simple string option
+        if (is_string($options) === true) {
+            $language = $options;
+            $options  = null;
+        }
+
+        // get language from array
+        if (is_array($options) === true && isset($options['language']) === true) {
+            $language = $options['language'];
+            unset($options['language']);
+        }
+
+        // get a language url for the linked page, if the page can be found
+        if ($kirby->multilang() === true) {
+            $parts = Str::split($path, '#');
+
+            if ($page = page($parts[0] ?? null)) {
+                $path = $page->url($language);
+
+                if (isset($parts[1]) === true) {
+                    $path .= '#' . $parts[1];
+                }
+            }
+        }
+
+        // keep relative urls
+        if (
+            $path !== null &&
+            (substr($path, 0, 2) === './' || substr($path, 0, 3) === '../')
+        ) {
+            return $path;
+        }
+
+        $url = Url::makeAbsolute($path, $kirby->url());
+
+        if ($options === null) {
+            return $url;
+        }
+
+        return (new Uri($url, $options))->toString();
     },
 
 ];

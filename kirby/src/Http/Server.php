@@ -92,6 +92,9 @@ class Server
      */
     public static function sanitize(string $key, $value)
     {
+        // make sure $value is not null
+        $value ??= '';
+
         switch ($key) {
             case 'SERVER_ADDR':
             case 'SERVER_NAME':
@@ -100,7 +103,7 @@ class Server
                 $value = strip_tags($value);
                 $value = preg_replace('![^\w.:-]+!iu', '', $value);
                 $value = trim($value, '-');
-                $value = htmlspecialchars($value);
+                $value = htmlspecialchars($value, ENT_COMPAT);
                 break;
             case 'SERVER_PORT':
             case 'HTTP_X_FORWARDED_PORT':
@@ -119,13 +122,21 @@ class Server
      */
     public static function port(bool $forwarded = false): int
     {
-        $port = $forwarded === true ? static::get('HTTP_X_FORWARDED_PORT') : null;
-
-        if (empty($port) === true) {
-            $port = static::get('SERVER_PORT');
+        // based on forwarded port
+        if ($forwarded === true) {
+            if ($port = static::get('HTTP_X_FORWARDED_PORT')) {
+                return $port;
+            }
         }
 
-        return $port;
+        // based on HTTP host
+        $host = static::get('HTTP_HOST');
+        if ($pos = strpos($host, ':')) {
+            return (int)substr($host, $pos + 1);
+        }
+
+        // based on server port
+        return static::get('SERVER_PORT');
     }
 
     /**

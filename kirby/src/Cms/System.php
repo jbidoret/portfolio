@@ -6,11 +6,10 @@ use Kirby\Data\Json;
 use Kirby\Exception\Exception;
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Exception\PermissionException;
+use Kirby\Filesystem\Dir;
+use Kirby\Filesystem\F;
 use Kirby\Http\Remote;
-use Kirby\Http\Uri;
-use Kirby\Http\Url;
-use Kirby\Toolkit\Dir;
-use Kirby\Toolkit\F;
+use Kirby\Toolkit\A;
 use Kirby\Toolkit\Str;
 use Kirby\Toolkit\V;
 use Throwable;
@@ -32,7 +31,7 @@ use Throwable;
 class System
 {
     /**
-     * @var App
+     * @var \Kirby\Cms\App
      */
     protected $app;
 
@@ -55,25 +54,6 @@ class System
     public function __debugInfo(): array
     {
         return $this->toArray();
-    }
-
-    /**
-     * Get an status array of all checks
-     *
-     * @return array
-     */
-    public function status(): array
-    {
-        return [
-            'accounts'  => $this->accounts(),
-            'content'   => $this->content(),
-            'curl'      => $this->curl(),
-            'sessions'  => $this->sessions(),
-            'mbstring'  => $this->mbstring(),
-            'media'     => $this->media(),
-            'php'       => $this->php(),
-            'server'    => $this->server(),
-        ];
     }
 
     /**
@@ -114,19 +94,7 @@ class System
      */
     public function indexUrl(): string
     {
-        $url = $this->app->url('index');
-
-        if (Url::isAbsolute($url)) {
-            $uri = Url::toObject($url);
-        } else {
-            // index URL was configured without host, use the current host
-            $uri = Uri::current([
-                'path'   => $url,
-                'query'  => null
-            ]);
-        }
-
-        return $uri->setScheme(null)->setSlash(false)->toString();
+        return $this->app->url('index', true)->setScheme(null)->setSlash(false)->toString();
     }
 
     /**
@@ -134,6 +102,7 @@ class System
      * if they don't exist yet
      *
      * @return void
+     * @throws \Kirby\Exception\PermissionException
      */
     public function init()
     {
@@ -142,6 +111,13 @@ class System
             Dir::make($this->app->root('accounts'));
         } catch (Throwable $e) {
             throw new PermissionException('The accounts directory could not be created');
+        }
+
+        // init /site/sessions
+        try {
+            Dir::make($this->app->root('sessions'));
+        } catch (Throwable $e) {
+            throw new PermissionException('The sessions directory could not be created');
         }
 
         // init /content
@@ -189,18 +165,11 @@ class System
      */
     public function isLocal(): bool
     {
-        $server = $this->app->server();
-        $host   = $server->host();
+        $server  = $this->app->server();
+        $visitor = $this->app->visitor();
+        $host    = $server->host();
 
         if ($host === 'localhost') {
-            return true;
-        }
-
-        if (in_array($server->address(), ['::1', '127.0.0.1', '0.0.0.0']) === true) {
-            return true;
-        }
-
-        if (Str::endsWith($host, '.dev') === true) {
             return true;
         }
 
@@ -209,6 +178,27 @@ class System
         }
 
         if (Str::endsWith($host, '.test') === true) {
+            return true;
+        }
+
+        if (in_array($visitor->ip(), ['::1', '127.0.0.1']) === true) {
+            // ensure that there is no reverse proxy in between
+
+            if (
+                isset($_SERVER['HTTP_X_FORWARDED_FOR']) === true &&
+                in_array($_SERVER['HTTP_X_FORWARDED_FOR'], ['::1', '127.0.0.1']) === false
+            ) {
+                return false;
+            }
+
+            if (
+                isset($_SERVER['HTTP_CLIENT_IP']) === true &&
+                in_array($_SERVER['HTTP_CLIENT_IP'], ['::1', '127.0.0.1']) === false
+            ) {
+                return false;
+            }
+
+            // no reverse proxy or the real client also comes from localhost
             return true;
         }
 
@@ -223,6 +213,67 @@ class System
     public function isOk(): bool
     {
         return in_array(false, array_values($this->status()), true) === false;
+    }
+
+    /**
+     * Loads the license file and returns
+     * the license information if available
+     *
+     * @return string|bool License key or `false` if the current user has
+     *                     permissions for access.settings, otherwise just a
+     *                     boolean that tells whether a valid license is active
+     */
+    public function license()
+    {
+        try {
+            $license = Json::read($this->app->root('license'));
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        // check for all required fields for the validation
+        if (isset(
+            $license['license'],
+            $license['order'],
+            $license['date'],
+            $license['email'],
+            $license['domain'],
+            $license['signature']
+        ) !== true) {
+            return false;
+        }
+
+        // build the license verification data
+        $data = [
+            'license' => $license['license'],
+            'order'   => $license['order'],
+            'email'   => hash('sha256', $license['email'] . 'kwAHMLyLPBnHEskzH9pPbJsBxQhKXZnX'),
+            'domain'  => $license['domain'],
+            'date'    => $license['date']
+        ];
+
+
+        // get the public key
+        $pubKey = F::read($this->app->root('kirby') . '/kirby.pub');
+
+        // verify the license signature
+        if (openssl_verify(json_encode($data), hex2bin($license['signature']), $pubKey, 'RSA-SHA256') !== 1) {
+            return false;
+        }
+
+        // verify the URL
+        if ($this->licenseUrl() !== $this->licenseUrl($license['domain'])) {
+            return false;
+        }
+
+        // only return the actual license key if the
+        // current user has appropriate permissions
+        $user = $this->app->user();
+        if ($user && $user->isAdmin() === true) {
+            return $license['license'];
+        } else {
+            return true;
+        }
     }
 
     /**
@@ -264,55 +315,65 @@ class System
     }
 
     /**
-     * Loads the license file and returns
-     * the license information if available
+     * Returns the configured UI modes for the login form
+     * with their respective options
      *
-     * @return string|false
+     * @return array
+     *
+     * @throws \Kirby\Exception\InvalidArgumentException If the configuration is invalid
+     *                                                   (only in debug mode)
      */
-    public function license()
+    public function loginMethods(): array
     {
-        try {
-            $license = Json::read($this->app->root('config') . '/.license');
-        } catch (Throwable $e) {
-            return false;
+        $default = ['password' => []];
+        $methods = A::wrap($this->app->option('auth.methods', $default));
+
+        // normalize the syntax variants
+        $normalized = [];
+        $uses2fa = false;
+        foreach ($methods as $key => $value) {
+            if (is_int($key) === true) {
+                // ['password']
+                $normalized[$value] = [];
+            } elseif ($value === true) {
+                // ['password' => true]
+                $normalized[$key] = [];
+            } else {
+                // ['password' => [...]]
+                $normalized[$key] = $value;
+
+                if (isset($value['2fa']) === true && $value['2fa'] === true) {
+                    $uses2fa = true;
+                }
+            }
         }
 
-        // check for all required fields for the validation
-        if (isset(
-            $license['license'],
-            $license['order'],
-            $license['date'],
-            $license['email'],
-            $license['domain'],
-            $license['signature']
-        ) !== true) {
-            return false;
+        // 2FA must not be circumvented by code-based modes
+        foreach (['code', 'password-reset'] as $method) {
+            if ($uses2fa === true && isset($normalized[$method]) === true) {
+                unset($normalized[$method]);
+
+                if ($this->app->option('debug') === true) {
+                    $message = 'The "' . $method . '" login method cannot be enabled when 2FA is required';
+                    throw new InvalidArgumentException($message);
+                }
+            }
         }
 
-        // build the license verification data
-        $data = [
-            'license' => $license['license'],
-            'order'   => $license['order'],
-            'email'   => hash('sha256', $license['email'] . 'kwAHMLyLPBnHEskzH9pPbJsBxQhKXZnX'),
-            'domain'  => $license['domain'],
-            'date'    => $license['date']
-        ];
+        // only one code-based mode can be active at once
+        if (
+            isset($normalized['code']) === true &&
+            isset($normalized['password-reset']) === true
+        ) {
+            unset($normalized['code']);
 
-
-        // get the public key
-        $pubKey = F::read($this->app->root('kirby') . '/kirby.pub');
-
-        // verify the license signature
-        if (openssl_verify(json_encode($data), hex2bin($license['signature']), $pubKey, 'RSA-SHA256') !== 1) {
-            return false;
+            if ($this->app->option('debug') === true) {
+                $message = 'The "code" and "password-reset" login methods cannot be enabled together';
+                throw new InvalidArgumentException($message);
+            }
         }
 
-        // verify the URL
-        if ($this->licenseUrl() !== $this->licenseUrl($license['domain'])) {
-            return false;
-        }
-
-        return $license['license'];
+        return $normalized;
     }
 
     /**
@@ -342,7 +403,20 @@ class System
      */
     public function php(): bool
     {
-        return version_compare(phpversion(), '7.1.0', '>=');
+        return
+            version_compare(PHP_VERSION, '7.4.0', '>=') === true &&
+            version_compare(PHP_VERSION, '8.2.0', '<')  === true;
+    }
+
+    /**
+     * Returns a sorted collection of all
+     * installed plugins
+     *
+     * @return \Kirby\Cms\Collection
+     */
+    public function plugins()
+    {
+        return (new Collection(App::instance()->plugins()))->sortBy('name', 'asc');
     }
 
     /**
@@ -350,9 +424,11 @@ class System
      * and adds it to the .license file in the config
      * folder if possible.
      *
-     * @param string $license
-     * @param string $email
+     * @param string|null $license
+     * @param string|null $email
      * @return bool
+     * @throws \Kirby\Exception\Exception
+     * @throws \Kirby\Exception\InvalidArgumentException
      */
     public function register(string $license = null, string $email = null): bool
     {
@@ -368,10 +444,11 @@ class System
             ]);
         }
 
+        // @codeCoverageIgnoreStart
         $response = Remote::get('https://licenses.getkirby.com/register', [
             'data' => [
                 'license' => $license,
-                'email'   => $email,
+                'email'   => Str::lower(trim($email)),
                 'domain'  => $this->indexUrl()
             ]
         ]);
@@ -387,7 +464,7 @@ class System
         $json['email'] = $email;
 
         // where to store the license file
-        $file = $this->app->root('config') . '/.license';
+        $file = $this->app->root('license');
 
         // save the license information
         Json::write($file, $json);
@@ -397,6 +474,7 @@ class System
                 'key' => 'license.verification'
             ]);
         }
+        // @codeCoverageIgnoreEnd
 
         return true;
     }
@@ -408,17 +486,33 @@ class System
      */
     public function server(): bool
     {
-        $servers = [
-            'apache',
-            'caddy',
-            'litespeed',
-            'nginx',
-            'php'
-        ];
+        return $this->serverSoftware() !== null;
+    }
 
-        $software = $_SERVER['SERVER_SOFTWARE'] ?? null;
+    /**
+     * Returns the detected server software
+     *
+     * @return string|null
+     */
+    public function serverSoftware(): ?string
+    {
+        if ($servers = $this->app->option('servers')) {
+            $servers = A::wrap($servers);
+        } else {
+            $servers = [
+                'apache',
+                'caddy',
+                'litespeed',
+                'nginx',
+                'php'
+            ];
+        }
 
-        return preg_match('!(' . implode('|', $servers) . ')!i', $software) > 0;
+        $software = $_SERVER['SERVER_SOFTWARE'] ?? '';
+
+        preg_match('!(' . implode('|', $servers) . ')!i', $software, $matches);
+
+        return $matches[0] ?? null;
     }
 
     /**
@@ -432,8 +526,43 @@ class System
     }
 
     /**
-     * Return the status as array
+     * Get an status array of all checks
      *
+     * @return array
+     */
+    public function status(): array
+    {
+        return [
+            'accounts'  => $this->accounts(),
+            'content'   => $this->content(),
+            'curl'      => $this->curl(),
+            'sessions'  => $this->sessions(),
+            'mbstring'  => $this->mbstring(),
+            'media'     => $this->media(),
+            'php'       => $this->php(),
+            'server'    => $this->server(),
+        ];
+    }
+
+    /**
+     * Returns the site's title as defined in the
+     * content file or `site.yml` blueprint
+     * @since 3.6.0
+     *
+     * @return string
+     */
+    public function title(): string
+    {
+        $site = $this->app->site();
+
+        if ($site->title()->isNotEmpty()) {
+            return $site->title()->value();
+        }
+
+        return $site->blueprint()->title();
+    }
+
+    /**
      * @return array
      */
     public function toArray(): array

@@ -4,6 +4,8 @@ namespace Kirby\Cms;
 
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Exception\LogicException;
+use Kirby\Filesystem\Dir;
+use Kirby\Panel\Site as Panel;
 use Kirby\Toolkit\A;
 
 /**
@@ -30,14 +32,14 @@ class Site extends ModelWithContent
     /**
      * The SiteBlueprint object
      *
-     * @var SiteBlueprint
+     * @var \Kirby\Cms\SiteBlueprint
      */
     protected $blueprint;
 
     /**
      * The error page object
      *
-     * @var Page
+     * @var \Kirby\Cms\Page
      */
     protected $errorPage;
 
@@ -52,7 +54,7 @@ class Site extends ModelWithContent
     /**
      * The home page object
      *
-     * @var Page
+     * @var \Kirby\Cms\Page
      */
     protected $homePage;
 
@@ -74,7 +76,7 @@ class Site extends ModelWithContent
     /**
      * The current page object
      *
-     * @var Page
+     * @var \Kirby\Cms\Page
      */
     protected $page;
 
@@ -113,7 +115,7 @@ class Site extends ModelWithContent
         }
 
         // return site content otherwise
-        return $this->content()->get($method, $arguments);
+        return $this->content()->get($method);
     }
 
     /**
@@ -138,6 +140,17 @@ class Site extends ModelWithContent
             'children' => $this->children(),
             'files'    => $this->files(),
         ]);
+    }
+
+    /**
+     * Makes it possible to convert the site model
+     * to a string. Mostly useful for debugging.
+     *
+     * @return string
+     */
+    public function __toString(): string
+    {
+        return $this->url();
     }
 
     /**
@@ -171,32 +184,6 @@ class Site extends ModelWithContent
     }
 
     /**
-     * Returns an array with all blueprints that are available
-     * as subpages of the site
-     *
-     * @param string $inSection
-     * @return array
-     */
-    public function blueprints(string $inSection = null): array
-    {
-        $blueprints = [];
-        $blueprint  = $this->blueprint();
-        $sections   = $inSection !== null ? [$blueprint->section($inSection)] : $blueprint->sections();
-
-        foreach ($sections as $section) {
-            if ($section === null) {
-                continue;
-            }
-
-            foreach ((array)$section->blueprints() as $blueprint) {
-                $blueprints[$blueprint['name']] = $blueprint;
-            }
-        }
-
-        return array_values($blueprints);
-    }
-
-    /**
      * Builds a breadcrumb collection
      *
      * @return \Kirby\Cms\Pages
@@ -220,10 +207,10 @@ class Site extends ModelWithContent
      *
      * @internal
      * @param array $data
-     * @param string $languageCode
+     * @param string|null $languageCode
      * @return array
      */
-    public function contentFileData(array $data, string $languageCode = null): array
+    public function contentFileData(array $data, ?string $languageCode = null): array
     {
         return A::prepend($data, [
             'title' => $data['title'] ?? null,
@@ -375,11 +362,15 @@ class Site extends ModelWithContent
      *
      * @param string|null $format
      * @param string|null $handler
-     * @return mixed
+     * @return int|string
      */
-    public function modified(string $format = null, string $handler = null)
+    public function modified(?string $format = null, ?string $handler = null)
     {
-        return Dir::modified($this->root(), $format, $handler ?? $this->kirby()->option('date.handler', 'date'));
+        return Dir::modified(
+            $this->root(),
+            $format,
+            $handler ?? $this->kirby()->option('date.handler', 'date')
+        );
     }
 
     /**
@@ -391,10 +382,11 @@ class Site extends ModelWithContent
      * prop, the home page will be returned if
      * it can be found. (see `Site::homePage()`)
      *
-     * @param string $path
+     * @param string|null $path omit for current page,
+     *                          otherwise e.g. `notes/across-the-ocean`
      * @return \Kirby\Cms\Page|null
      */
-    public function page(string $path = null)
+    public function page(?string $path = null)
     {
         if ($path !== null) {
             return $this->find($path);
@@ -422,31 +414,13 @@ class Site extends ModelWithContent
     }
 
     /**
-     * Returns the full path without leading slash
+     * Returns the panel info object
      *
-     * @internal
-     * @return string
+     * @return \Kirby\Panel\Site
      */
-    public function panelPath(): string
+    public function panel()
     {
-        return 'site';
-    }
-
-    /**
-     * Returns the url to the editing view
-     * in the panel
-     *
-     * @internal
-     * @param bool $relative
-     * @return string
-     */
-    public function panelUrl(bool $relative = false): string
-    {
-        if ($relative === true) {
-            return '/' . $this->panelPath();
-        } else {
-            return $this->kirby()->url('panel') . '/' . $this->panelPath();
-        }
+        return new Panel($this);
     }
 
     /**
@@ -489,7 +463,7 @@ class Site extends ModelWithContent
      */
     public function root(): string
     {
-        return $this->root = $this->root ?? $this->kirby()->root('content');
+        return $this->root ??= $this->kirby()->root('content');
     }
 
     /**
@@ -507,11 +481,11 @@ class Site extends ModelWithContent
     /**
      * Search all pages in the site
      *
-     * @param string $query
+     * @param string|null $query
      * @param array $params
      * @return \Kirby\Cms\Pages
      */
-    public function search(string $query = null, $params = [])
+    public function search(?string $query = null, $params = [])
     {
         return $this->index()->search($query, $params);
     }
@@ -520,9 +494,9 @@ class Site extends ModelWithContent
      * Sets the Blueprint object
      *
      * @param array|null $blueprint
-     * @return self
+     * @return $this
      */
-    protected function setBlueprint(array $blueprint = null)
+    protected function setBlueprint(?array $blueprint = null)
     {
         if ($blueprint !== null) {
             $blueprint['model'] = $this;
@@ -539,7 +513,7 @@ class Site extends ModelWithContent
      * else is set.
      *
      * @param string $id
-     * @return self
+     * @return $this
      */
     protected function setErrorPageId(string $id = 'error')
     {
@@ -554,7 +528,7 @@ class Site extends ModelWithContent
      * else is set.
      *
      * @param string $id
-     * @return self
+     * @return $this
      */
     protected function setHomePageId(string $id = 'home')
     {
@@ -567,9 +541,9 @@ class Site extends ModelWithContent
      *
      * @internal
      * @param \Kirby\Cms\Page|null $page
-     * @return self
+     * @return $this
      */
-    public function setPage(Page $page = null)
+    public function setPage(?Page $page = null)
     {
         $this->page = $page;
         return $this;
@@ -578,10 +552,10 @@ class Site extends ModelWithContent
     /**
      * Sets the Url
      *
-     * @param string $url
-     * @return self
+     * @param string|null $url
+     * @return $this
      */
-    protected function setUrl($url = null)
+    protected function setUrl(?string $url = null)
     {
         $this->url = $url;
         return $this;
@@ -613,7 +587,7 @@ class Site extends ModelWithContent
      * @param string|null $language
      * @return string
      */
-    public function url($language = null): string
+    public function url(?string $language = null): string
     {
         if ($language !== null || $this->kirby()->multilang() === true) {
             return $this->urlForLanguage($language);
@@ -626,11 +600,11 @@ class Site extends ModelWithContent
      * Returns the translated url
      *
      * @internal
-     * @param string $languageCode
-     * @param array $options
+     * @param string|null $languageCode
+     * @param array|null $options
      * @return string
      */
-    public function urlForLanguage(string $languageCode = null, array $options = null): string
+    public function urlForLanguage(?string $languageCode = null, ?array $options = null): string
     {
         if ($language = $this->kirby()->language($languageCode)) {
             return $language->url();
@@ -649,7 +623,7 @@ class Site extends ModelWithContent
      * @param string|null $languageCode
      * @return \Kirby\Cms\Page
      */
-    public function visit($page, string $languageCode = null)
+    public function visit($page, ?string $languageCode = null)
     {
         if ($languageCode !== null) {
             $this->kirby()->setCurrentTranslation($languageCode);
@@ -684,5 +658,42 @@ class Site extends ModelWithContent
     public function wasModifiedAfter($time): bool
     {
         return Dir::wasModifiedAfter($this->root(), $time);
+    }
+
+
+    /**
+     * Deprecated!
+     */
+
+    /**
+     * Returns the full path without leading slash
+     *
+     * @todo Add `deprecated()` helper warning in 3.7.0
+     * @todo Remove in 3.8.0
+     *
+     * @internal
+     * @return string
+     * @codeCoverageIgnore
+     */
+    public function panelPath(): string
+    {
+        return $this->panel()->path();
+    }
+
+    /**
+     * Returns the url to the editing view
+     * in the panel
+     *
+     * @todo Add `deprecated()` helper warning in 3.7.0
+     * @todo Remove in 3.8.0
+     *
+     * @internal
+     * @param bool $relative
+     * @return string
+     * @codeCoverageIgnore
+     */
+    public function panelUrl(bool $relative = false): string
+    {
+        return $this->panel()->url($relative);
     }
 }

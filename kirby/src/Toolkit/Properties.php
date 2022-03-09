@@ -23,7 +23,7 @@ trait Properties
      * initial properties.
      *
      * @param array $props
-     * @return self
+     * @return static
      */
     public function clone(array $props = [])
     {
@@ -34,7 +34,7 @@ trait Properties
      * Creates a clone and fetches all
      * lazy-loaded getters to get a full copy
      *
-     * @return self
+     * @return static
      */
     public function hardcopy()
     {
@@ -115,7 +115,7 @@ trait Properties
         }
 
         // fetch the default value from the property
-        $value = $value ?? $this->$name ?? null;
+        $value ??= $this->$name ?? null;
 
         // store all original properties, to be able to clone them later
         $this->propertyData[$name] = $value;

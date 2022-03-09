@@ -23,8 +23,8 @@ class Structure extends Collection
     /**
      * Creates a new Collection with the given objects
      *
-     * @param array $objects
-     * @param object $parent
+     * @param array $objects Kirby\Cms\StructureObject` objects or props arrays
+     * @param object|null $parent
      */
     public function __construct($objects = [], $parent = null)
     {
@@ -40,6 +40,7 @@ class Structure extends Collection
      *
      * @param string $id
      * @param array|StructureObject $props
+     * @throws \Kirby\Exception\InvalidArgumentException
      */
     public function __set(string $id, $props)
     {

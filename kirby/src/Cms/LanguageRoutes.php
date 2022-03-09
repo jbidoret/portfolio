@@ -2,7 +2,7 @@
 
 namespace Kirby\Cms;
 
-use Kirby\Toolkit\F;
+use Kirby\Filesystem\F;
 
 class LanguageRoutes
 {
@@ -40,6 +40,7 @@ class LanguageRoutes
 
                     // jump through to the fallback if nothing
                     // can be found for this language
+                    /** @var \Kirby\Http\Route $this */
                     $this->next();
                 }
             ];
@@ -78,13 +79,24 @@ class LanguageRoutes
                     ]);
 
                     if ($url->toString() !== $page->url()) {
+                        // redirect to translated page directly
+                        // if translation is exists and languages detect is enabled
+                        if (
+                            $kirby->option('languages.detect') === true &&
+                            $page->translation($kirby->detectedLanguage()->code())->exists() === true
+                        ) {
+                            return $kirby
+                                ->response()
+                                ->redirect($page->url($kirby->detectedLanguage()->code()));
+                        }
+
                         return $kirby
                             ->response()
                             ->redirect($page->url());
                     }
                 }
 
-                return $kirby->defaultLanguage()->router()->call($path);
+                return $kirby->language()->router()->call($path);
             }
         ];
     }
@@ -105,7 +117,7 @@ class LanguageRoutes
             'action'  => function () use ($kirby) {
 
                 // find all languages with the same base url as the current installation
-                $languages = $kirby->languages()->filterBy('baseurl', $kirby->url());
+                $languages = $kirby->languages()->filter('baseurl', $kirby->url());
 
                 // if there's no language with a matching base url,
                 // redirect to the default language

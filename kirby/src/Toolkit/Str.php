@@ -3,6 +3,7 @@
 namespace Kirby\Toolkit;
 
 use Exception;
+use Kirby\Exception\InvalidArgumentException;
 
 /**
  * The String class provides a set
@@ -157,7 +158,7 @@ class Str
         foreach ($items as $quality => $values) {
             foreach ($values as $value) {
                 $result[] = [
-                    'quality' => $quality,
+                    'quality' => (float)$quality,
                     'value'   => $value
                 ];
             }
@@ -179,10 +180,10 @@ class Str
         $position = static::position($string, $needle, $caseInsensitive);
 
         if ($position === false) {
-            return false;
-        } else {
-            return static::substr($string, $position + static::length($needle));
+            return '';
         }
+
+        return static::substr($string, $position + static::length($needle));
     }
 
     /**
@@ -221,10 +222,10 @@ class Str
         $position = static::position($string, $needle, $caseInsensitive);
 
         if ($position === false) {
-            return false;
-        } else {
-            return static::substr($string, 0, $position);
+            return '';
         }
+
+        return static::substr($string, 0, $position);
     }
 
     /**
@@ -250,7 +251,40 @@ class Str
      */
     public static function contains(string $string = null, string $needle, bool $caseInsensitive = false): bool
     {
-        return call_user_func($caseInsensitive === true ? 'stristr' : 'strstr', $string, $needle) !== false;
+        if ($needle === '') {
+            return true;
+        }
+
+        $method = $caseInsensitive === true ? 'stripos' : 'strpos';
+        return call_user_func($method, $string ?? '', $needle) !== false;
+    }
+
+    /**
+     * Convert timestamp to date string
+     * according to locale settings
+     *
+     * @param int|null $time
+     * @param string|null $format
+     * @param string $handler date or strftime
+     * @return string|int
+     */
+    public static function date(?int $time = null, ?string $format = null, string $handler = 'date')
+    {
+        if (is_null($format) === true) {
+            return $time;
+        }
+
+        // separately handle strftime to be able
+        // to suppress deprecation warning
+        // TODO: remove strftime support for PHP 9.0
+        if ($handler === 'strftime') {
+            // make sure timezone is set correctly
+            date_default_timezone_get();
+
+            return @strftime($format, $time);
+        }
+
+        return $handler($format, $time);
     }
 
     /**
@@ -289,7 +323,7 @@ class Str
         for ($i = 0; $i < static::length($string); $i++) {
             $char = static::substr($string, $i, 1);
             list(, $code) = unpack('N', mb_convert_encoding($char, 'UCS-4BE', 'UTF-8'));
-            $encoded .= rand(1, 2) == 1 ? '&#' . $code . ';' : '&#x' . dechex($code) . ';';
+            $encoded .= rand(1, 2) === 1 ? '&#' . $code . ';' : '&#x' . dechex($code) . ';';
         }
 
         return $encoded;
@@ -341,7 +375,7 @@ class Str
      * @param string $rep The element, which should be added if the string is too long. Ellipsis is the default.
      * @return string The shortened string
      */
-    public static function excerpt($string, $chars = 140, $strip = true, $rep = '…')
+    public static function excerpt($string, $chars = 140, $strip = true, $rep = ' …')
     {
         if ($strip === true) {
             $string = strip_tags(str_replace('<', ' <', $string));
@@ -361,7 +395,7 @@ class Str
             return $string;
         }
 
-        return static::substr($string, 0, strrpos(static::substr($string, 0, $chars), ' ')) . ' ' . $rep;
+        return static::substr($string, 0, mb_strrpos(static::substr($string, 0, $chars), ' ')) . $rep;
     }
 
     /**
@@ -373,9 +407,17 @@ class Str
      */
     public static function float($value): string
     {
+        // make sure $value is not null
+        $value ??= '';
+
+        // Convert exponential to decimal, 1e-8 as 0.00000001
+        if (strpos(strtolower($value), 'e') !== false) {
+            $value = rtrim(sprintf('%.16f', (float)$value), '0');
+        }
+
         $value   = str_replace(',', '.', $value);
         $decimal = strlen(substr(strrchr($value, '.'), 1));
-        return number_format((float)$value, $decimal, '.', false);
+        return number_format((float)$value, $decimal, '.', '');
     }
 
     /**
@@ -391,10 +433,10 @@ class Str
         $position = static::position($string, $needle, $caseInsensitive);
 
         if ($position === false) {
-            return false;
-        } else {
-            return static::substr($string, $position);
+            return '';
         }
+
+        return static::substr($string, $position);
     }
 
     /**
@@ -402,10 +444,14 @@ class Str
      *
      * @param string|null $string
      * @return bool
+     * @deprecated 3.6.0 use `Kirby\Toolkit\V::url()` instead
+     * @todo Throw deprecation warning in 3.7.0
+     * @todo Remove in 3.8.0
+     * @codeCoverageIgnore
      */
-    public static function isURL(string $string = null): bool
+    public static function isURL(?string $string = null): bool
     {
-        return filter_var($string, FILTER_VALIDATE_URL);
+        return filter_var($string, FILTER_VALIDATE_URL) !== false;
     }
 
     /**
@@ -427,7 +473,7 @@ class Str
      */
     public static function length(string $string = null): int
     {
-        return mb_strlen($string, 'UTF-8');
+        return mb_strlen($string ?? '', 'UTF-8');
     }
 
     /**
@@ -438,7 +484,7 @@ class Str
      */
     public static function lower(string $string = null): string
     {
-        return mb_strtolower($string, 'UTF-8');
+        return mb_strtolower($string ?? '', 'UTF-8');
     }
 
     /**
@@ -469,14 +515,12 @@ class Str
             foreach ($type as $t) {
                 $pool = array_merge($pool, static::pool($t));
             }
-
-            return $pool;
         } else {
-            switch ($type) {
-                case 'alphaLower':
+            switch (strtolower($type)) {
+                case 'alphalower':
                     $pool = range('a', 'z');
                     break;
-                case 'alphaUpper':
+                case 'alphaupper':
                     $pool = range('A', 'Z');
                     break;
                 case 'alpha':
@@ -485,7 +529,7 @@ class Str
                 case 'num':
                     $pool = range(0, 9);
                     break;
-                case 'alphaNum':
+                case 'alphanum':
                     $pool = static::pool(['alpha', 'num']);
                     break;
             }
@@ -505,12 +549,16 @@ class Str
      */
     public static function position(string $string = null, string $needle, bool $caseInsensitive = false)
     {
+        if ($needle === '') {
+            throw new InvalidArgumentException('The needle must not be empty');
+        }
+
         if ($caseInsensitive === true) {
             $string = static::lower($string);
             $needle = static::lower($needle);
         }
 
-        return mb_strpos($string, $needle, 0, 'UTF-8');
+        return mb_strpos($string ?? '', $needle, 0, 'UTF-8');
     }
 
     /**
@@ -592,7 +640,7 @@ class Str
 
         // without a limit we might as well use the built-in function
         if ($limit === -1) {
-            return str_replace($search, $replace, $string);
+            return str_replace($search, $replace, $string ?? '');
         }
 
         // if the limit is zero, the result will be no replacements at all
@@ -724,6 +772,53 @@ class Str
     }
 
     /**
+     * Replaces placeholders in string with values from the data array
+     * and escapes HTML in the results in `{{ }}` placeholders
+     * while leaving HTML special characters untouched in `{< >}` placeholders
+     *
+     * @since 3.6.0
+     *
+     * @param string|null $string The string with placeholders
+     * @param array $data Associative array with placeholders as
+     *                    keys and replacements as values.
+     *                    Supports query syntax.
+     * @param array $options An options array that contains:
+     *                       - fallback: if a token does not have any matches
+     *                       - callback: to be able to handle each matching result (escaping is applied after the callback)
+     *
+     * @return string The filled-in and partially escaped string
+     */
+    public static function safeTemplate(string $string = null, array $data = [], array $options = []): string
+    {
+        $callback = is_a(($options['callback'] ?? null), 'Closure') === true ? $options['callback'] : null;
+        $fallback = $options['fallback'] ?? '';
+
+        // replace and escape
+        $string = static::template($string, $data, [
+            'start'    => '{{',
+            'end'      => '}}',
+            'callback' => function ($result, $query, $data) use ($callback) {
+                if ($callback !== null) {
+                    $result = $callback($result, $query, $data);
+                }
+
+                return Escape::html($result);
+            },
+            'fallback' => $fallback
+        ]);
+
+        // replace unescaped (specifically marked placeholders)
+        $string = static::template($string, $data, [
+            'start'    => '{<',
+            'end'      => '>}',
+            'callback' => $callback,
+            'fallback' => $fallback
+        ]);
+
+        return $string;
+    }
+
+    /**
      * Shortens a string and adds an ellipsis if the string is too long
      *
      * <code>
@@ -743,8 +838,12 @@ class Str
      *                         string is too long. Ellipsis is the default.
      * @return string The shortened string
      */
-    public static function short(string $string = null, int $length = 0, string $appendix = '…'): ?string
+    public static function short(string $string = null, int $length = 0, string $appendix = '…'): string
     {
+        if ($string === null) {
+            return '';
+        }
+
         if ($length === 0) {
             return $string;
         }
@@ -754,6 +853,79 @@ class Str
         }
 
         return static::substr($string, 0, $length) . $appendix;
+    }
+
+    /**
+     * Calculates the similarity between two strings with multibyte support
+     * @since 3.5.2
+     *
+     * @author Based on the work of Antal Áron
+     * @copyright Original Copyright (c) 2017, Antal Áron
+     * @license https://github.com/antalaron/mb-similar-text/blob/master/LICENSE MIT License
+     * @param string $first
+     * @param string $second
+     * @param bool $caseInsensitive If `true`, strings are compared case-insensitively
+     * @return array matches: Number of matching chars in both strings
+     *               percent: Similarity in percent
+     */
+    public static function similarity(string $first, string $second, bool $caseInsensitive = false): array
+    {
+        $matches = 0;
+        $percent = 0.0;
+
+        if ($caseInsensitive === true) {
+            $first  = static::lower($first);
+            $second = static::lower($second);
+        }
+
+        if (static::length($first) + static::length($second) > 0) {
+            $pos1 = $pos2 = $max = 0;
+            $len1 = static::length($first);
+            $len2 = static::length($second);
+
+            for ($p = 0; $p < $len1; ++$p) {
+                for ($q = 0; $q < $len2; ++$q) {
+                    for (
+                        $l = 0;
+                        ($p + $l < $len1) && ($q + $l < $len2) &&
+                        static::substr($first, $p + $l, 1) === static::substr($second, $q + $l, 1);
+                        ++$l
+                    ) {
+                        // nothing to do
+                    }
+
+                    if ($l > $max) {
+                        $max  = $l;
+                        $pos1 = $p;
+                        $pos2 = $q;
+                    }
+                }
+            }
+
+            $matches = $max;
+
+            if ($matches) {
+                if ($pos1 && $pos2) {
+                    $similarity = static::similarity(
+                        static::substr($first, 0, $pos1),
+                        static::substr($second, 0, $pos2)
+                    );
+                    $matches += $similarity['matches'];
+                }
+
+                if (($pos1 + $max < $len1) && ($pos2 + $max < $len2)) {
+                    $similarity = static::similarity(
+                        static::substr($first, $pos1 + $max, $len1 - $pos1 - $max),
+                        static::substr($second, $pos2 + $max, $len2 - $pos2 - $max)
+                    );
+                    $matches += $similarity['matches'];
+                }
+            }
+
+            $percent = ($matches * 200.0) / ($len1 + $len2);
+        }
+
+        return compact('matches', 'percent');
     }
 
     /**
@@ -768,10 +940,10 @@ class Str
      */
     public static function slug(string $string = null, string $separator = null, string $allowed = null, int $maxlength = 128): string
     {
-        $separator = $separator ?? static::$defaults['slug']['separator'];
-        $allowed   = $allowed   ?? static::$defaults['slug']['allowed'];
+        $separator ??= static::$defaults['slug']['separator'];
+        $allowed   ??= static::$defaults['slug']['allowed'];
 
-        $string = trim($string);
+        $string = trim($string ?? '');
         $string = static::lower($string);
         $string = static::ascii($string);
 
@@ -827,8 +999,11 @@ class Str
             return $string;
         }
 
-        $parts  = explode($separator, $string);
-        $out    = [];
+        // make sure $string is string
+        $string ??= '';
+
+        $parts = explode($separator, $string);
+        $out   = [];
 
         foreach ($parts as $p) {
             $p = trim($p);
@@ -867,11 +1042,11 @@ class Str
      */
     public static function substr(string $string = null, int $start = 0, int $length = null): string
     {
-        return mb_substr($string, $start, $length, 'UTF-8');
+        return mb_substr($string ?? '', $start, $length, 'UTF-8');
     }
 
     /**
-     * Replaces placeholders in string with value from array
+     * Replaces placeholders in string with values from the data array
      *
      * <code>
      *
@@ -880,22 +1055,70 @@ class Str
      *
      * </code>
      *
-     * @param string $string The string with placeholders
+     * @param string|null $string The string with placeholders
      * @param array $data Associative array with placeholders as
-     *                    keys and replacements as values
-     * @param string $fallback A fallback if a token does not have any matches
-     * @param string $start Placeholder start characters
-     * @param string $end Placeholder end characters
+     *                    keys and replacements as values.
+     *                    Supports query syntax.
+     * @param string|array|null $fallback An options array that contains:
+     *                                    - fallback: if a token does not have any matches
+     *                                    - callback: to be able to handle each matching result
+     *                                    - start: start placeholder
+     *                                    - end: end placeholder
+     *                                    A simple fallback string is supported for compatibility (but deprecated).
+     * @param string $start Placeholder start characters (deprecated)
+     * @param string $end Placeholder end characters (deprecated)
+     *
+     * @todo Remove `$start` and `$end` parameters, rename `$fallback` to `$options` and only support `array` type for `$options` in 3.7.0
+     *
      * @return string The filled-in string
      */
-    public static function template(string $string = null, array $data = [], string $fallback = null, string $start = '{{', string $end = '}}'): string
+    public static function template(string $string = null, array $data = [], $fallback = null, string $start = '{{', string $end = '}}'): string
     {
-        return preg_replace_callback('!' . $start . '(.*?)' . $end . '!', function ($match) use ($data, $fallback) {
+        // @codeCoverageIgnoreStart
+        if (
+            is_string($fallback) === true ||
+            $start !== '{{' ||
+            $end !== '}}'
+        ) {
+            deprecated('Str::template(): The $fallback, $start and $end parameters have been deprecated. Please pass an array to the $options parameter instead with `fallback`, `start` or `end` keys: Str::template($string, $data, $options)');
+        }
+        // @codeCoverageIgnoreEnd
+
+        $options  = $fallback;
+        $fallback = is_string($options) === true ? $options : ($options['fallback'] ?? null);
+        $callback = is_a(($options['callback'] ?? null), 'Closure') === true ? $options['callback'] : null;
+        $start    = (string)($options['start'] ?? $start);
+        $end      = (string)($options['end'] ?? $end);
+
+        // make sure $string is string
+        $string ??= '';
+
+        return preg_replace_callback('!' . $start . '(.*?)' . $end . '!', function ($match) use ($data, $fallback, $callback) {
             $query = trim($match[1]);
+
+            // if the placeholder contains a dot, it is a query
             if (strpos($query, '.') !== false) {
-                return (new Query($match[1], $data))->result() ?? $fallback;
+                try {
+                    $result = (new Query($match[1], $data))->result();
+                } catch (Exception $e) {
+                    $result = null;
+                }
+            } else {
+                $result = $data[$query] ?? null;
             }
-            return $data[$query] ?? $fallback;
+
+            // if we don't have a result, use the fallback if given
+            if ($result === null && $fallback !== null) {
+                $result = $fallback;
+            }
+
+            // callback on result if given
+            if ($callback !== null) {
+                $result = $callback((string)$result, $query, $data);
+            }
+
+            // if we still don't have a result, keep the original placeholder
+            return $result ?? $match[0];
         }, $string);
     }
 
@@ -908,8 +1131,12 @@ class Str
      */
     public static function toBytes($size): int
     {
+        // TODO: remove in 3.7.0
+        // in favor of strict parameter type hint
+        $size ??= '';
+
         $size = trim($size);
-        $last = strtolower($size[strlen($size)-1] ?? null);
+        $last = strtolower($size[strlen($size)-1] ?? '');
         $size = (int)$size;
 
         switch ($last) {
@@ -933,7 +1160,7 @@ class Str
      * @param mixed $type
      * @return mixed
      */
-    public static function toType($string = null, $type)
+    public static function toType($string, $type)
     {
         if (is_string($type) === false) {
             $type = gettype($type);
@@ -987,7 +1214,7 @@ class Str
      */
     public static function ucwords(string $string = null): string
     {
-        return mb_convert_case($string, MB_CASE_TITLE, 'UTF-8');
+        return mb_convert_case($string ?? '', MB_CASE_TITLE, 'UTF-8');
     }
 
     /**
@@ -1021,10 +1248,10 @@ class Str
         $position = static::position($string, $needle, $caseInsensitive);
 
         if ($position === false) {
-            return false;
-        } else {
-            return static::substr($string, 0, $position + static::length($needle));
+            return '';
         }
+
+        return static::substr($string, 0, $position + static::length($needle));
     }
 
     /**
@@ -1035,7 +1262,7 @@ class Str
      */
     public static function upper(string $string = null): string
     {
-        return mb_strtoupper($string, 'UTF-8');
+        return mb_strtoupper($string ?? '', 'UTF-8');
     }
 
     /**
@@ -1048,12 +1275,20 @@ class Str
      */
     public static function widont(string $string = null): string
     {
-        return preg_replace_callback('|([^\s])\s+([^\s]+)\s*$|u', function ($matches) {
+        // make sure $string is string
+        $string ??= '';
+
+        // Replace space between last word and punctuation
+        $string = preg_replace_callback('|(\S)\s(\S?)$|u', function ($matches) {
+            return $matches[1] . '&nbsp;' . $matches[2];
+        }, $string);
+
+        // Replace space between last two words
+        return preg_replace_callback('|(\s)(?=\S*$)(\S+)|u', function ($matches) {
             if (static::contains($matches[2], '-')) {
-                return $matches[1] . '&nbsp;' . str_replace('-', '&#8209;', $matches[2]);
-            } else {
-                return $matches[1] . '&nbsp;' . $matches[2];
+                $matches[2] = str_replace('-', '&#8209;', $matches[2]);
             }
+            return '&nbsp;' . $matches[2];
         }, $string);
     }
 }

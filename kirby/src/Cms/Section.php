@@ -31,17 +31,37 @@ class Section extends Component
     public static $types = [];
 
 
+    /**
+     * Section constructor.
+     *
+     * @param string $type
+     * @param array $attrs
+     * @throws \Kirby\Exception\InvalidArgumentException
+     */
     public function __construct(string $type, array $attrs = [])
     {
         if (isset($attrs['model']) === false) {
             throw new InvalidArgumentException('Undefined section model');
         }
 
+        if (is_a($attrs['model'], 'Kirby\Cms\Model') === false) {
+            throw new InvalidArgumentException('Invalid section model');
+        }
+
         // use the type as fallback for the name
-        $attrs['name'] = $attrs['name'] ?? $type;
-        $attrs['type'] = $type;
+        $attrs['name'] ??= $type;
+        $attrs['type']   = $type;
 
         parent::__construct($type, $attrs);
+    }
+
+    public function errors(): array
+    {
+        if (array_key_exists('errors', $this->methods) === true) {
+            return $this->methods['errors']->call($this);
+        }
+
+        return $this->errors ?? [];
     }
 
     /**
@@ -49,7 +69,7 @@ class Section extends Component
      */
     public function kirby()
     {
-        return $this->model->kirby();
+        return $this->model()->kirby();
     }
 
     /**
@@ -60,6 +80,9 @@ class Section extends Component
         return $this->model;
     }
 
+    /**
+     * @return array
+     */
     public function toArray(): array
     {
         $array = parent::toArray();
@@ -69,6 +92,9 @@ class Section extends Component
         return $array;
     }
 
+    /**
+     * @return array
+     */
     public function toResponse(): array
     {
         return array_merge([

@@ -27,10 +27,36 @@ return [
         }
     ],
     [
+        'pattern' => 'pages/(:any)/blueprint',
+        'method'  => 'GET',
+        'action'  => function (string $id) {
+            return $this->page($id)->blueprint();
+        }
+    ],
+    [
+        'pattern' => [
+            'pages/(:any)/blueprints',
+            /**
+             * @deprecated
+             * @todo remove in 3.7.0
+             */
+            'pages/(:any)/children/blueprints',
+        ],
+        'method'  => 'GET',
+        'action'  => function (string $id) {
+            // @codeCoverageIgnoreStart
+            if ($this->route->pattern() === 'pages/([a-zA-Z0-9\.\-_%= \+\@\(\)]+)/children/blueprints') {
+                deprecated('`GET pages/(:any)/children/blueprints` API endpoint has been deprecated and will be removed in 3.7.0. Use `GET pages/(:any)/blueprints` instead');
+            }
+            // @codeCoverageIgnoreEnd
+            return $this->page($id)->blueprints($this->requestQuery('section'));
+        }
+    ],
+    [
         'pattern' => 'pages/(:any)/children',
         'method'  => 'GET',
         'action'  => function (string $id) {
-            return $this->page($id)->children();
+            return $this->pages($id, $this->requestQuery('status'));
         }
     ],
     [
@@ -41,23 +67,10 @@ return [
         }
     ],
     [
-        'pattern' => 'pages/(:any)/children/blueprints',
-        'method'  => 'GET',
-        'action'  => function (string $id) {
-            return $this->page($id)->blueprints($this->requestQuery('section'));
-        }
-    ],
-    [
         'pattern' => 'pages/(:any)/children/search',
         'method'  => 'GET|POST',
         'action'  => function (string $id) {
-            $pages = $this->page($id)->children();
-
-            if ($this->requestMethod() === 'GET') {
-                return $pages->search($this->requestQuery('q'));
-            } else {
-                return $pages->query($this->requestBody());
-            }
+            return $this->searchPages($id);
         }
     ],
     [

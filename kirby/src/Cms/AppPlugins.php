@@ -4,12 +4,15 @@ namespace Kirby\Cms;
 
 use Closure;
 use Kirby\Exception\DuplicateException;
+use Kirby\Filesystem\Dir;
+use Kirby\Filesystem\F;
+use Kirby\Filesystem\Mime;
 use Kirby\Form\Field as FormField;
+use Kirby\Image\Image;
+use Kirby\Panel\Panel;
 use Kirby\Text\KirbyTag;
 use Kirby\Toolkit\A;
-use Kirby\Toolkit\Collection;
-use Kirby\Toolkit\Dir;
-use Kirby\Toolkit\F;
+use Kirby\Toolkit\Collection as ToolkitCollection;
 use Kirby\Toolkit\V;
 
 /**
@@ -41,40 +44,45 @@ trait AppPlugins
 
         // other plugin types
         'api' => [],
+        'areas' => [],
+        'authChallenges' => [],
+        'blockMethods' => [],
+        'blockModels' => [],
+        'blocksMethods' => [],
         'blueprints' => [],
         'cacheTypes' => [],
         'collections' => [],
         'components' => [],
         'controllers' => [],
         'collectionFilters' => [],
+        'collectionMethods' => [],
         'fieldMethods' => [],
         'fileMethods' => [],
+        'fileTypes' => [],
         'filesMethods' => [],
         'fields' => [],
         'hooks' => [],
+        'layoutMethods' => [],
+        'layoutColumnMethods' => [],
+        'layoutsMethods' => [],
         'pages' => [],
         'pageMethods' => [],
         'pagesMethods' => [],
         'pageModels' => [],
+        'permissions' => [],
         'routes' => [],
         'sections' => [],
         'siteMethods' => [],
         'snippets' => [],
         'tags' => [],
         'templates' => [],
+        'thirdParty' => [],
         'translations' => [],
         'userMethods' => [],
         'userModels' => [],
         'usersMethods' => [],
-        'validators' => []
+        'validators' => [],
     ];
-
-    /**
-     * Cache for system extensions
-     *
-     * @var array
-     */
-    protected static $systemExtensions = null;
 
     /**
      * Flag when plugins have been loaded
@@ -89,7 +97,7 @@ trait AppPlugins
      *
      * @internal
      * @param array $extensions
-     * @param \Kirby\Cms\Plugin $plugin The plugin which defined those extensions
+     * @param \Kirby\Cms\Plugin $plugin|null The plugin which defined those extensions
      * @return array
      */
     public function extend(array $extensions, Plugin $plugin = null): array
@@ -123,6 +131,69 @@ trait AppPlugins
     }
 
     /**
+     * Registers additional custom Panel areas
+     *
+     * @param array $areas
+     * @return array
+     */
+    protected function extendAreas(array $areas): array
+    {
+        foreach ($areas as $id => $area) {
+            if (isset($this->extensions['areas'][$id]) === false) {
+                $this->extensions['areas'][$id] = [];
+            }
+
+            $this->extensions['areas'][$id][] = $area;
+        }
+
+        return $this->extensions['areas'];
+    }
+
+    /**
+     * Registers additional authentication challenges
+     *
+     * @param array $challenges
+     * @return array
+     */
+    protected function extendAuthChallenges(array $challenges): array
+    {
+        return $this->extensions['authChallenges'] = Auth::$challenges = array_merge(Auth::$challenges, $challenges);
+    }
+
+    /**
+     * Registers additional block methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendBlockMethods(array $methods): array
+    {
+        return $this->extensions['blockMethods'] = Block::$methods = array_merge(Block::$methods, $methods);
+    }
+
+    /**
+     * Registers additional block models
+     *
+     * @param array $models
+     * @return array
+     */
+    protected function extendBlockModels(array $models): array
+    {
+        return $this->extensions['blockModels'] = Block::$models = array_merge(Block::$models, $models);
+    }
+  
+    /**
+     * Registers additional blocks methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendBlocksMethods(array $methods): array
+    {
+        return $this->extensions['blockMethods'] = Blocks::$methods = array_merge(Blocks::$methods, $methods);
+    }
+
+    /**
      * Registers additional blueprints
      *
      * @param array $blueprints
@@ -152,7 +223,18 @@ trait AppPlugins
      */
     protected function extendCollectionFilters(array $filters): array
     {
-        return $this->extensions['collectionFilters'] = Collection::$filters = array_merge(Collection::$filters, $filters);
+        return $this->extensions['collectionFilters'] = ToolkitCollection::$filters = array_merge(ToolkitCollection::$filters, $filters);
+    }
+
+    /**
+     * Registers additional collection methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendCollectionMethods(array $methods): array
+    {
+        return $this->extensions['collectionMethods'] = Collection::$methods = array_merge(Collection::$methods, $methods);
     }
 
     /**
@@ -197,6 +279,59 @@ trait AppPlugins
     protected function extendFileMethods(array $methods): array
     {
         return $this->extensions['fileMethods'] = File::$methods = array_merge(File::$methods, $methods);
+    }
+
+    /**
+     * Registers additional custom file types and mimes
+     *
+     * @param array $fileTypes
+     * @return array
+     */
+    protected function extendFileTypes(array $fileTypes): array
+    {
+        // normalize array
+        foreach ($fileTypes as $ext => $file) {
+            $extension = $file['extension'] ?? $ext;
+            $type      = $file['type'] ?? null;
+            $mime      = $file['mime'] ?? null;
+            $resizable = $file['resizable'] ?? false;
+            $viewable  = $file['viewable'] ?? false;
+
+            if (is_string($type) === true) {
+                if (isset(F::$types[$type]) === false) {
+                    F::$types[$type] = [];
+                }
+
+                if (in_array($extension, F::$types[$type]) === false) {
+                    F::$types[$type][] = $extension;
+                }
+            }
+
+            if ($mime !== null) {
+                if (array_key_exists($extension, Mime::$types) === true) {
+                    // if `Mime::$types[$extension]` is not already an array, make it one
+                    // and append the new MIME type unless it's already in the list
+                    Mime::$types[$extension] = array_unique(array_merge((array)Mime::$types[$extension], (array)$mime));
+                } else {
+                    Mime::$types[$extension] = $mime;
+                }
+            }
+
+            if ($resizable === true && in_array($extension, Image::$resizableTypes) === false) {
+                Image::$resizableTypes[] = $extension;
+            }
+
+            if ($viewable === true && in_array($extension, Image::$viewableTypes) === false) {
+                Image::$viewableTypes[] = $extension;
+            }
+        }
+
+        return $this->extensions['fileTypes'] = [
+            'type'      => F::$types,
+            'mime'      => Mime::$types,
+            'resizable' => Image::$resizableTypes,
+            'viewable'  => Image::$viewableTypes
+        ];
     }
 
     /**
@@ -269,6 +404,39 @@ trait AppPlugins
     }
 
     /**
+     * Registers additional layout methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendLayoutMethods(array $methods): array
+    {
+        return $this->extensions['layoutMethods'] = Layout::$methods = array_merge(Layout::$methods, $methods);
+    }
+
+    /**
+     * Registers additional layout column methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendLayoutColumnMethods(array $methods): array
+    {
+        return $this->extensions['layoutColumnMethods'] = LayoutColumn::$methods = array_merge(LayoutColumn::$methods, $methods);
+    }
+
+    /**
+     * Registers additional layouts methods
+     *
+     * @param array $methods
+     * @return array
+     */
+    protected function extendLayoutsMethods(array $methods): array
+    {
+        return $this->extensions['layoutsMethods'] = Layouts::$methods = array_merge(Layouts::$methods, $methods);
+    }
+
+    /**
      * Registers additional options
      *
      * @param array $options
@@ -278,13 +446,7 @@ trait AppPlugins
     protected function extendOptions(array $options, Plugin $plugin = null): array
     {
         if ($plugin !== null) {
-            $prefixed = [];
-
-            foreach ($options as $key => $value) {
-                $prefixed[$plugin->prefix() . '.' . $key] = $value;
-            }
-
-            $options = $prefixed;
+            $options = [$plugin->prefix() => $options];
         }
 
         return $this->extensions['options'] = $this->options = A::merge($options, $this->options, A::MERGE_REPLACE);
@@ -335,9 +497,25 @@ trait AppPlugins
     }
 
     /**
+     * Registers additional permissions
+     *
+     * @param array $permissions
+     * @param \Kirby\Cms\Plugin|null $plugin
+     * @return array
+     */
+    protected function extendPermissions(array $permissions, Plugin $plugin = null): array
+    {
+        if ($plugin !== null) {
+            $permissions = [$plugin->prefix() => $permissions];
+        }
+
+        return $this->extensions['permissions'] = Permissions::$extendedActions = array_merge(Permissions::$extendedActions, $permissions);
+    }
+
+    /**
      * Registers additional routes
      *
-     * @param array|Closure $routes
+     * @param array|\Closure $routes
      * @return array
      */
     protected function extendRoutes($routes): array
@@ -374,8 +552,8 @@ trait AppPlugins
     /**
      * Registers SmartyPants component
      *
-     * @param Closure $smartypants
-     * @return Closure
+     * @param \Closure $smartypants
+     * @return \Closure
      */
     protected function extendSmartypants(Closure $smartypants)
     {
@@ -424,6 +602,19 @@ trait AppPlugins
     protected function extendTranslations(array $translations): array
     {
         return $this->extensions['translations'] = array_replace_recursive($this->extensions['translations'], $translations);
+    }
+
+    /**
+     * Add third party extensions to the registry
+     * so they can be used as plugins for plugins
+     * for example.
+     *
+     * @param array $extensions
+     * @return array
+     */
+    protected function extendThirdParty(array $extensions): array
+    {
+        return $this->extensions['thirdParty'] = array_replace_recursive($this->extensions['thirdParty'], $extensions);
     }
 
     /**
@@ -514,7 +705,7 @@ trait AppPlugins
             $class = str_replace(['.', '-', '_'], '', $name) . 'Page';
 
             // load the model class
-            include_once $model;
+            F::loadOnce($model);
 
             if (class_exists($class) === true) {
                 $models[$name] = $class;
@@ -529,7 +720,7 @@ trait AppPlugins
      * the options array. I.e. hooks and routes can be
      * setup from the config.
      *
-     * @return array
+     * @return void
      */
     protected function extensionsFromOptions()
     {
@@ -544,7 +735,6 @@ trait AppPlugins
     /**
      * Apply all plugin extensions
      *
-     * @param array $plugins
      * @return void
      */
     protected function extensionsFromPlugins()
@@ -577,83 +767,39 @@ trait AppPlugins
      */
     protected function extensionsFromSystem()
     {
-        // load static extensions only once
-        if (static::$systemExtensions === null) {
-            // Form Field Mixins
-            FormField::$mixins['filepicker'] = include static::$root . '/config/fields/mixins/filepicker.php';
-            FormField::$mixins['min']        = include static::$root . '/config/fields/mixins/min.php';
-            FormField::$mixins['options']    = include static::$root . '/config/fields/mixins/options.php';
-            FormField::$mixins['pagepicker'] = include static::$root . '/config/fields/mixins/pagepicker.php';
-            FormField::$mixins['picker']     = include static::$root . '/config/fields/mixins/picker.php';
-            FormField::$mixins['upload']     = include static::$root . '/config/fields/mixins/upload.php';
-            FormField::$mixins['userpicker'] = include static::$root . '/config/fields/mixins/userpicker.php';
+        // mixins
+        FormField::$mixins = $this->core->fieldMixins();
+        Section::$mixins   = $this->core->sectionMixins();
 
-            // Tag Aliases
-            KirbyTag::$aliases = [
-                'youtube' => 'video',
-                'vimeo'   => 'video'
-            ];
+        // aliases
+        KirbyTag::$aliases = $this->core->kirbyTagAliases();
+        Field::$aliases    = $this->core->fieldMethodAliases();
 
-            // Field method aliases
-            Field::$aliases = [
-                'bool'    => 'toBool',
-                'esc'     => 'escape',
-                'excerpt' => 'toExcerpt',
-                'float'   => 'toFloat',
-                'h'       => 'html',
-                'int'     => 'toInt',
-                'kt'      => 'kirbytext',
-                'kti'     => 'kirbytextinline',
-                'link'    => 'toLink',
-                'md'      => 'markdown',
-                'sp'      => 'smartypants',
-                'v'       => 'isValid',
-                'x'       => 'xml'
-            ];
+        // blueprint presets
+        PageBlueprint::$presets = $this->core->blueprintPresets();
 
-            // blueprint presets
-            PageBlueprint::$presets['pages']   = include static::$root . '/config/presets/pages.php';
-            PageBlueprint::$presets['page']    = include static::$root . '/config/presets/page.php';
-            PageBlueprint::$presets['files']   = include static::$root . '/config/presets/files.php';
+        $this->extendAuthChallenges($this->core->authChallenges());
+        $this->extendCacheTypes($this->core->cacheTypes());
+        $this->extendComponents($this->core->components());
+        $this->extendBlueprints($this->core->blueprints());
+        $this->extendFields($this->core->fields());
+        $this->extendFieldMethods($this->core->fieldMethods());
+        $this->extendSections($this->core->sections());
+        $this->extendSnippets($this->core->snippets());
+        $this->extendTags($this->core->kirbyTags());
+        $this->extendTemplates($this->core->templates());
+    }
 
-            // section mixins
-            Section::$mixins['empty']          = include static::$root . '/config/sections/mixins/empty.php';
-            Section::$mixins['headline']       = include static::$root . '/config/sections/mixins/headline.php';
-            Section::$mixins['help']           = include static::$root . '/config/sections/mixins/help.php';
-            Section::$mixins['layout']         = include static::$root . '/config/sections/mixins/layout.php';
-            Section::$mixins['max']            = include static::$root . '/config/sections/mixins/max.php';
-            Section::$mixins['min']            = include static::$root . '/config/sections/mixins/min.php';
-            Section::$mixins['pagination']     = include static::$root . '/config/sections/mixins/pagination.php';
-            Section::$mixins['parent']         = include static::$root . '/config/sections/mixins/parent.php';
-
-            // section types
-            Section::$types['info']            = include static::$root . '/config/sections/info.php';
-            Section::$types['pages']           = include static::$root . '/config/sections/pages.php';
-            Section::$types['files']           = include static::$root . '/config/sections/files.php';
-            Section::$types['fields']          = include static::$root . '/config/sections/fields.php';
-
-            static::$systemExtensions = [
-                'components'   => include static::$root . '/config/components.php',
-                'blueprints'   => include static::$root . '/config/blueprints.php',
-                'fields'       => include static::$root . '/config/fields.php',
-                'fieldMethods' => include static::$root . '/config/methods.php',
-                'tags'         => include static::$root . '/config/tags.php'
-            ];
-        }
-
-        // default cache types
-        $this->extendCacheTypes([
-            'apcu'      => 'Kirby\Cache\ApcuCache',
-            'file'      => 'Kirby\Cache\FileCache',
-            'memcached' => 'Kirby\Cache\MemCached',
-            'memory'    => 'Kirby\Cache\MemoryCache',
-        ]);
-
-        $this->extendComponents(static::$systemExtensions['components']);
-        $this->extendBlueprints(static::$systemExtensions['blueprints']);
-        $this->extendFields(static::$systemExtensions['fields']);
-        $this->extendFieldMethods((static::$systemExtensions['fieldMethods'])($this));
-        $this->extendTags(static::$systemExtensions['tags']);
+    /**
+     * Returns the native implementation
+     * of a core component
+     *
+     * @param string $component
+     * @return \Closure|false
+     */
+    public function nativeComponent(string $component)
+    {
+        return $this->core->components()[$component] ?? false;
     }
 
     /**
@@ -662,6 +808,7 @@ trait AppPlugins
      * @param string $name
      * @param array|null $extends If null is passed it will be used as getter. Otherwise as factory.
      * @return \Kirby\Cms\Plugin|null
+     * @throws \Kirby\Exception\DuplicateException
      */
     public static function plugin(string $name, array $extends = null)
     {
@@ -687,7 +834,7 @@ trait AppPlugins
      * Loading only happens on the first call.
      *
      * @internal
-     * @param array $plugins Can be used to overwrite the plugins registry
+     * @param array|null $plugins Can be used to overwrite the plugins registry
      * @return array
      */
     public function plugins(array $plugins = null): array
@@ -733,7 +880,7 @@ trait AppPlugins
                 continue;
             }
 
-            include_once $entry;
+            F::loadOnce($entry);
 
             $loaded[] = $dir;
         }

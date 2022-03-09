@@ -1,11 +1,14 @@
 {
   "name": "getkirby/cms",
   "description": "The Kirby 3 core",
-  "version": "3.3.3",
   "license": "proprietary",
-  "keywords": ["kirby", "cms", "core"],
-  "homepage": "https://getkirby.com",
   "type": "kirby-cms",
+  "version": "3.6.2",
+  "keywords": [
+    "kirby",
+    "cms",
+    "core"
+  ],
   "authors": [
     {
       "name": "Kirby Team",
@@ -13,40 +16,75 @@
       "homepage": "https://getkirby.com"
     }
   ],
+  "homepage": "https://getkirby.com",
   "support": {
     "email": "support@getkirby.com",
     "issues": "https://github.com/getkirby/kirby/issues",
     "forum": "https://forum.getkirby.com",
     "source": "https://github.com/getkirby/kirby"
   },
+  "_comment": "TODO: psr/log is not used by Kirby; drop pinned version when Kirby no longer supports PHP 7",
   "require": {
-    "php": ">=7.1.0",
-    "ext-mbstring": "*",
+    "php": ">=7.4.0 <8.2.0",
     "ext-ctype": "*",
-    "getkirby/composer-installer": "^1.0",
-    "mustangostang/spyc": "0.6.2",
+    "ext-mbstring": "*",
+    "claviska/simpleimage": "3.6.5",
+    "filp/whoops": "2.14.5",
+    "getkirby/composer-installer": "^1.2.1",
+    "laminas/laminas-escaper": "2.9.0",
     "michelf/php-smartypants": "1.8.1",
-    "claviska/simpleimage": "3.3.3",
-    "phpmailer/phpmailer": "6.0.7",
-    "filp/whoops": "2.3.1",
-    "true/punycode": "2.1.1",
-    "laminas/laminas-escaper": "2.6.0"
+    "phpmailer/phpmailer": "6.5.3",
+    "psr/log": "1.1.4",
+    "symfony/polyfill-intl-idn": "1.24.0",
+    "symfony/polyfill-mbstring": "1.24.0"
+  },
+  "replace": {
+    "symfony/polyfill-php72": "*"
   },
   "autoload": {
-    "files": ["config/setup.php"],
-    "classmap": ["dependencies/"],
     "psr-4": {
       "Kirby\\": "src/"
-    }
-  },
-  "scripts": {
-    "analyze": "phpstan analyse",
-    "test": "phpunit --stderr --coverage-html=tests/coverage",
-    "zip": "composer archive --format=zip --file=dist",
-    "build": "./scripts/build",
-    "fix": "php-cs-fixer fix --config .php_cs"
+    },
+    "classmap": [
+      "dependencies/"
+    ],
+    "files": [
+      "config/setup.php",
+      "config/helpers.php"
+    ]
   },
   "config": {
-    "optimize-autoloader": true
+    "allow-plugins": {
+      "getkirby/composer-installer": true
+    },
+    "optimize-autoloader": true,
+    "platform-check": false
+  },
+  "extra": {
+    "unused": [
+      "symfony/polyfill-intl-idn"
+    ]
+  },
+  "scripts": {
+    "post-update-cmd": "curl -o cacert.pem https://curl.se/ca/cacert.pem",
+    "analyze": [
+      "@analyze:composer",
+      "@analyze:psalm",
+      "@analyze:phpcpd",
+      "@analyze:phpmd"
+    ],
+    "analyze:composer": "composer validate --strict --no-check-version --no-check-all",
+    "analyze:phpcpd": "phpcpd --fuzzy --exclude tests --exclude vendor .",
+    "analyze:phpmd": "phpmd . ansi phpmd.xml.dist --exclude 'dependencies/*,tests/*,vendor/*'",
+    "analyze:psalm": "psalm",
+    "build": "./scripts/build",
+    "ci": [
+      "@fix",
+      "@analyze",
+      "@test"
+    ],
+    "fix": "php-cs-fixer fix",
+    "test": "phpunit --stderr --coverage-html=tests/coverage",
+    "zip": "composer archive --format=zip --file=dist"
   }
 }

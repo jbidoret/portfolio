@@ -2,7 +2,11 @@
 
 namespace Kirby\Form;
 
-use Kirby\Data\Yaml;
+use Kirby\Cms\App;
+use Kirby\Cms\Model;
+use Kirby\Data\Data;
+use Kirby\Exception\NotFoundException;
+use Kirby\Toolkit\Str;
 use Throwable;
 
 /**
@@ -19,10 +23,32 @@ use Throwable;
  */
 class Form
 {
+    /**
+     * An array of all found errors
+     *
+     * @var array|null
+     */
     protected $errors;
+
+    /**
+     * Fields in the form
+     *
+     * @var \Kirby\Form\Fields|null
+     */
     protected $fields;
+
+    /**
+     * All values of form
+     *
+     * @var array
+     */
     protected $values = [];
 
+    /**
+     * Form constructor
+     *
+     * @param array $props
+     */
     public function __construct(array $props)
     {
         $fields = $props['fields'] ?? [];
@@ -30,6 +56,12 @@ class Form
         $input  = $props['input']  ?? [];
         $strict = $props['strict'] ?? false;
         $inject = $props;
+
+        // prepare field properties for multilang setups
+        $fields = static::prepareFieldsForLanguage(
+            $fields,
+            $props['language'] ?? null
+        );
 
         // lowercase all value names
         $values = array_change_key_case($values);
@@ -59,7 +91,7 @@ class Form
             }
 
             try {
-                $field = new Field($props['type'], $props);
+                $field = Field::factory($props['type'], $props, $this->fields);
             } catch (Throwable $e) {
                 $field = static::exceptionField($e, $props);
             }
@@ -85,13 +117,35 @@ class Form
         }
     }
 
-    public function data($defaults = false): array
+    /**
+     * Returns the data required to write to the content file
+     * Doesn't include default and null values
+     *
+     * @return array
+     */
+    public function content(): array
+    {
+        return $this->data(false, false);
+    }
+
+    /**
+     * Returns data for all fields in the form
+     *
+     * @param false $defaults
+     * @param bool $includeNulls
+     * @return array
+     */
+    public function data($defaults = false, bool $includeNulls = true): array
     {
         $data = $this->values;
 
         foreach ($this->fields as $field) {
             if ($field->save() === false || $field->unset() === true) {
-                $data[$field->name()] = null;
+                if ($includeNulls === true) {
+                    $data[$field->name()] = null;
+                } else {
+                    unset($data[$field->name()]);
+                }
             } else {
                 $data[$field->name()] = $field->data($defaults);
             }
@@ -100,6 +154,11 @@ class Form
         return $data;
     }
 
+    /**
+     * An array of all found errors
+     *
+     * @return array
+     */
     public function errors(): array
     {
         if ($this->errors !== null) {
@@ -120,32 +179,177 @@ class Form
         return $this->errors;
     }
 
+    /**
+     * Shows the error with the field
+     *
+     * @param \Throwable $exception
+     * @param array $props
+     * @return \Kirby\Form\Field
+     */
     public static function exceptionField(Throwable $exception, array $props = [])
     {
+        $message = $exception->getMessage();
+
+        if (App::instance()->option('debug') === true) {
+            $message .= ' in file: ' . $exception->getFile() . ' line: ' . $exception->getLine();
+        }
+
         $props = array_merge($props, [
-            'label' => 'Error in "' . $props['name'] . '" field',
+            'label' => 'Error in "' . $props['name'] . '" field.',
             'theme' => 'negative',
-            'text'  => strip_tags($exception->getMessage()),
+            'text'  => strip_tags($message),
         ]);
 
-        return new Field('info', $props);
+        return Field::factory('info', $props);
     }
 
+    /**
+     * Get the field object by name
+     * and handle nested fields correctly
+     *
+     * @param string $name
+     * @throws \Kirby\Exception\NotFoundException
+     * @return \Kirby\Form\Field
+     */
+    public function field(string $name)
+    {
+        $form       = $this;
+        $fieldNames = Str::split($name, '+');
+        $index      = 0;
+        $count      = count($fieldNames);
+        $field      = null;
+
+        foreach ($fieldNames as $fieldName) {
+            $index++;
+
+            if ($field = $form->fields()->get($fieldName)) {
+                if ($count !== $index) {
+                    $form = $field->form();
+                }
+            } else {
+                throw new NotFoundException('The field "' . $fieldName . '" could not be found');
+            }
+        }
+
+        // it can get this error only if $name is an empty string as $name = ''
+        if ($field === null) {
+            throw new NotFoundException('No field could be loaded');
+        }
+
+        return $field;
+    }
+
+    /**
+     * Returns form fields
+     *
+     * @return \Kirby\Form\Fields|null
+     */
     public function fields()
     {
         return $this->fields;
     }
 
+    /**
+     * @param \Kirby\Cms\Model $model
+     * @param array $props
+     * @return static
+     */
+    public static function for(Model $model, array $props = [])
+    {
+        // get the original model data
+        $original = $model->content($props['language'] ?? null)->toArray();
+        $values   = $props['values'] ?? [];
+
+        // convert closures to values
+        foreach ($values as $key => $value) {
+            if (is_a($value, 'Closure') === true) {
+                $values[$key] = $value($original[$key] ?? null);
+            }
+        }
+
+        // set a few defaults
+        $props['values']   = array_merge($original, $values);
+        $props['fields'] ??= [];
+        $props['model']    = $model;
+
+        // search for the blueprint
+        if (method_exists($model, 'blueprint') === true && $blueprint = $model->blueprint()) {
+            $props['fields'] = $blueprint->fields();
+        }
+
+        $ignoreDisabled = $props['ignoreDisabled'] ?? false;
+
+        // REFACTOR: this could be more elegant
+        if ($ignoreDisabled === true) {
+            $props['fields'] = array_map(function ($field) {
+                $field['disabled'] = false;
+                return $field;
+            }, $props['fields']);
+        }
+
+        return new static($props);
+    }
+
+    /**
+     * Checks if the form is invalid
+     *
+     * @return bool
+     */
     public function isInvalid(): bool
     {
         return empty($this->errors()) === false;
     }
 
+    /**
+     * Checks if the form is valid
+     *
+     * @return bool
+     */
     public function isValid(): bool
     {
         return empty($this->errors()) === true;
     }
 
+    /**
+     * Disables fields in secondary languages when
+     * they are configured to be untranslatable
+     *
+     * @param array $fields
+     * @param string|null $language
+     * @return array
+     */
+    protected static function prepareFieldsForLanguage(array $fields, ?string $language = null): array
+    {
+        $kirby = App::instance(null, true);
+
+        // only modify the fields if we have a valid Kirby multilang instance
+        if (!$kirby || $kirby->multilang() === false) {
+            return $fields;
+        }
+
+        if ($language === null) {
+            $language = $kirby->language()->code();
+        }
+
+        if ($language !== $kirby->defaultLanguage()->code()) {
+            foreach ($fields as $fieldName => $fieldProps) {
+                // switch untranslatable fields to readonly
+                if (($fieldProps['translate'] ?? true) === false) {
+                    $fields[$fieldName]['unset']    = true;
+                    $fields[$fieldName]['disabled'] = true;
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Converts the data of fields to strings
+     *
+     * @param false $defaults
+     * @return array
+     */
     public function strings($defaults = false): array
     {
         $strings = [];
@@ -154,7 +358,7 @@ class Form
             if ($value === null) {
                 $strings[$key] = null;
             } elseif (is_array($value) === true) {
-                $strings[$key] = Yaml::encode($value);
+                $strings[$key] = Data::encode($value, 'yaml');
             } else {
                 $strings[$key] = $value;
             }
@@ -163,19 +367,27 @@ class Form
         return $strings;
     }
 
+    /**
+     * Converts the form to a plain array
+     *
+     * @return array
+     */
     public function toArray(): array
     {
         $array = [
-            'errors' => $this->errors(),
-            'fields' => $this->fields->toArray(function ($item) {
-                return $item->toArray();
-            }),
+            'errors'  => $this->errors(),
+            'fields'  => $this->fields->toArray(fn ($item) => $item->toArray()),
             'invalid' => $this->isInvalid()
         ];
 
         return $array;
     }
 
+    /**
+     * Returns form values
+     *
+     * @return array
+     */
     public function values(): array
     {
         return $this->values;

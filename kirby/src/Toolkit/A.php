@@ -32,6 +32,27 @@ class A
     }
 
     /**
+     * Recursively loops through the array and
+     * resolves any item defined as `Closure`,
+     * applying the passed parameters
+     * @since 3.5.6
+     *
+     * @param array $array
+     * @param mixed ...$args Parameters to pass to the closures
+     * @return array
+     */
+    public static function apply(array $array, ...$args): array
+    {
+        array_walk_recursive($array, function (&$item) use ($args) {
+            if (is_a($item, 'Closure')) {
+                $item = $item(...$args);
+            }
+        });
+
+        return $array;
+    }
+
+    /**
      * Gets an element of an array by key
      *
      * <code>
@@ -81,29 +102,38 @@ class A
             return $array[$key];
         }
 
-        // support dot notation
+        // extract data from nested array structures using the dot notation
         if (strpos($key, '.') !== false) {
             $keys     = explode('.', $key);
             $firstKey = array_shift($keys);
 
+            // if the input array also uses dot notation, try to find a subset of the $keys
             if (isset($array[$firstKey]) === false) {
                 $currentKey = $firstKey;
 
                 while ($innerKey = array_shift($keys)) {
-                    $currentKey = $currentKey . '.' . $innerKey;
+                    $currentKey .= '.' . $innerKey;
 
-                    if (isset($array[$currentKey]) === true && is_array($array[$currentKey])) {
+                    // the element needs to exist and also needs to be an array; otherwise
+                    // we cannot find the remaining keys within it (invalid array structure)
+                    if (isset($array[$currentKey]) === true && is_array($array[$currentKey]) === true) {
+                        // $keys only holds the remaining keys that have not been shifted off yet
                         return static::get($array[$currentKey], implode('.', $keys), $default);
                     }
                 }
 
+                // searching through the full chain of keys wasn't successful
                 return $default;
             }
 
+            // if the input array uses a completely nested structure,
+            // recursively progress layer by layer
             if (is_array($array[$firstKey]) === true) {
                 return static::get($array[$firstKey], implode('.', $keys), $default);
             }
 
+            // the $firstKey element was found, but isn't an array, so we cannot
+            // find the remaining keys within it (invalid array structure)
             return $default;
         }
 
@@ -132,13 +162,13 @@ class A
      *
      * @param array $array1
      * @param array $array2
-     * @param bool $mode Behavior for elements with numeric keys;
-     *                   A::MERGE_APPEND:    elements are appended, keys are reset;
-     *                   A::MERGE_OVERWRITE: elements are overwritten, keys are preserved
-     *                   A::MERGE_REPLACE:   non-associative arrays are completely replaced
+     * @param int $mode Behavior for elements with numeric keys;
+     *                  A::MERGE_APPEND:    elements are appended, keys are reset;
+     *                  A::MERGE_OVERWRITE: elements are overwritten, keys are preserved
+     *                  A::MERGE_REPLACE:   non-associative arrays are completely replaced
      * @return array
      */
-    public static function merge($array1, $array2, $mode = A::MERGE_APPEND)
+    public static function merge($array1, $array2, int $mode = A::MERGE_APPEND)
     {
         $merged = $array1;
 
@@ -149,7 +179,7 @@ class A
         foreach ($array2 as $key => $value) {
 
             // append to the merged array, don't overwrite numeric keys
-            if (is_int($key) === true && $mode == static::MERGE_APPEND) {
+            if (is_int($key) === true && $mode === static::MERGE_APPEND) {
                 $merged[] = $value;
 
             // recursively merge the two array values
@@ -162,7 +192,7 @@ class A
             }
         }
 
-        if ($mode == static::MERGE_APPEND) {
+        if ($mode === static::MERGE_APPEND) {
             // the keys don't make sense anymore, reset them
             // array_merge() is the simplest way to renumber
             // arrays that have both numeric and string keys;
@@ -345,6 +375,20 @@ class A
     }
 
     /**
+     * A simple wrapper around array_map
+     * with a sane argument order
+     * @since 3.6.0
+     *
+     * @param array $array
+     * @param callable $map
+     * @return array
+     */
+    public static function map(array $array, callable $map): array
+    {
+        return array_map($map, $array);
+    }
+
+    /**
      * Move an array item to a new index
      *
      * @param array $array
@@ -388,7 +432,7 @@ class A
      *
      * $required = ['cat', 'elephant'];
      *
-     * $missng = A::missing($array, $required);
+     * $missing = A::missing($array, $required);
      * // missing: [
      * //    'elephant'
      * // ];
@@ -408,6 +452,86 @@ class A
             }
         }
         return $missing;
+    }
+
+    /**
+     * Normalizes an array into a nested form by converting
+     * dot notation in keys to nested structures
+     *
+     * @param array $array
+     * @param array $ignore List of keys in dot notation that should
+     *                      not be converted to a nested structure
+     * @return array
+     */
+    public static function nest(array $array, array $ignore = []): array
+    {
+        // convert a simple ignore list to a nested $key => true array
+        if (isset($ignore[0]) === true) {
+            $ignore = array_map(fn () => true, array_flip($ignore));
+            $ignore = A::nest($ignore);
+        }
+
+        $result = [];
+
+        foreach ($array as $fullKey => $value) {
+            // extract the first part of a multi-level key, keep the others
+            $subKeys = explode('.', $fullKey);
+            $key     = array_shift($subKeys);
+
+            // skip the magic for ignored keys
+            if (isset($ignore[$key]) === true && $ignore[$key] === true) {
+                $result[$fullKey] = $value;
+                continue;
+            }
+
+            // untangle elements where the key uses dot notation
+            if (count($subKeys) > 0) {
+                $value = static::nestByKeys($value, $subKeys);
+            }
+
+            // now recursively do the same for each array level if needed
+            if (is_array($value) === true) {
+                $value = static::nest($value, $ignore[$key] ?? []);
+            }
+
+            // merge arrays with previous results if necessary
+            // (needed when the same keys are used both with and without dot notation)
+            if (
+                isset($result[$key]) === true &&
+                is_array($result[$key]) === true &&
+                is_array($value) === true
+            ) {
+                $result[$key] = array_replace_recursive($result[$key], $value);
+            } else {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Recursively creates a nested array from a set of keys
+     * with a key on each level
+     *
+     * @param mixed $value Arbitrary value that will end up at the bottom of the tree
+     * @param array $keys List of keys to use sorted from the topmost level
+     * @return array|mixed Nested array or (if `$keys` is empty) the input `$value`
+     */
+    public static function nestByKeys($value, array $keys)
+    {
+        // shift off the first key from the list
+        $firstKey = array_shift($keys);
+
+        // stop further recursion if there are no more keys
+        if ($firstKey === null) {
+            return $value;
+        }
+
+        // return one level of the output tree, recurse further
+        return [
+            $firstKey => static::nestByKeys($value, $keys)
+        ];
     }
 
     /**
@@ -461,7 +585,7 @@ class A
      */
     public static function sort(array $array, string $field, string $direction = 'desc', $method = SORT_REGULAR): array
     {
-        $direction = strtolower($direction) == 'desc' ? SORT_DESC : SORT_ASC;
+        $direction = strtolower($direction) === 'desc' ? SORT_DESC : SORT_ASC;
         $helper    = [];
         $result    = [];
 
@@ -486,7 +610,7 @@ class A
     }
 
     /**
-     * Checks wether an array is associative or not
+     * Checks whether an array is associative or not
      *
      * <code>
      * $array = ['a', 'b', 'c'];
@@ -505,7 +629,7 @@ class A
      */
     public static function isAssociative(array $array): bool
     {
-        return ctype_digit(implode(null, array_keys($array))) === false;
+        return ctype_digit(implode('', array_keys($array))) === false;
     }
 
     /**

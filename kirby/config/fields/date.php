@@ -1,21 +1,39 @@
 <?php
 
 use Kirby\Exception\Exception;
+use Kirby\Form\Field;
+use Kirby\Toolkit\Date;
+use Kirby\Toolkit\I18n;
+use Kirby\Toolkit\Str;
 
 return [
+    'mixins' => ['datetime'],
     'props' => [
         /**
-         * Default date when a new page/file/user gets created
+         * Unset inherited props
          */
-        'default' => function ($default = null) {
-            return $default;
+        'placeholder' => null,
+
+        /**
+         * Activate/deactivate the dropdown calendar
+         */
+        'calendar' => function (bool $calendar = true) {
+            return $calendar;
         },
 
         /**
-         * Defines a custom format that is used when the field is saved
+         * Default date when a new page/file/user gets created
          */
-        'format' => function (string $format = null) {
-            return $format;
+        'default' => function (string $default = null): string {
+            return $this->toDatetime($default) ?? '';
+        },
+
+        /**
+         * Custom format (dayjs tokens: `DD`, `MM`, `YYYY`) that is
+         * used to display the field in the Panel
+         */
+        'display' => function ($display = 'YYYY-MM-DD') {
+            return I18n::translate($display, $display);
         },
 
         /**
@@ -24,22 +42,27 @@ return [
         'icon' => function (string $icon = 'calendar') {
             return $icon;
         },
+
         /**
-         * Youngest date, which can be selected/saved
+         * Latest date, which can be selected/saved (Y-m-d)
          */
-        'max' => function (string $max = null) {
-            return $this->toDate($max);
+        'max' => function (string $max = null): ?string {
+            return Date::optional($max);
         },
         /**
-         * Oldest date, which can be selected/saved
+         * Earliest date, which can be selected/saved (Y-m-d)
          */
-        'min' => function (string $min = null) {
-            return $this->toDate($min);
+        'min' => function (string $min = null): ?string {
+            return Date::optional($min);
         },
+
         /**
-         * The placeholder is not available
+         * Round to the nearest: sub-options for `unit` (day) and `size` (1)
          */
-        'placeholder' => null,
+        'step' => function ($step = null) {
+            return $step;
+        },
+
         /**
          * Pass `true` or an array of time field options to show the time selector.
          */
@@ -51,76 +74,78 @@ return [
          */
         'value' => function ($value = null) {
             return $value;
-        },
+        }
     ],
     'computed' => [
-        'default' => function () {
-            return $this->toDate($this->default);
+        'display' => function () {
+            if ($this->display) {
+                return Str::upper($this->display);
+            }
         },
         'format' => function () {
-            return $this->props['format'] ?? ($this->time() === false ? 'Y-m-d' : 'Y-m-d H:i');
+            return $this->props['format'] ?? ($this->time === false ? 'Y-m-d' : 'Y-m-d H:i:s');
         },
-        'value' => function () {
-            return $this->toDate($this->value);
-        },
-    ],
-    'methods' => [
-        'toDate' => function ($value) {
-            if ($timestamp = timestamp($value, $this->time['step'] ?? 5)) {
-                return date('Y-m-d H:i:s', $timestamp);
+        'time' => function () {
+            if ($this->time === false) {
+                return false;
             }
 
-            return null;
-        }
-    ],
-    'save' => function ($value) {
-        if ($value !== null && $date = strtotime($value)) {
-            return date($this->format(), $date);
-        }
+            $props = is_array($this->time) ? $this->time : [];
+            $props['model'] = $this->model();
+            $field = new Field('time', $props);
+            return $field->toArray();
+        },
+        'step' => function () {
+            if ($this->time === false || empty($this->time['step']) === true) {
+                return Date::stepConfig($this->step, [
+                    'size' => 1,
+                    'unit' => 'day'
+                ]);
+            }
 
-        return '';
-    },
+            return Date::stepConfig($this->time['step'], [
+                'size' => 5,
+                'unit' => 'minute'
+            ]);
+        },
+        'value' => function (): string {
+            return $this->toDatetime($this->value) ?? '';
+        },
+    ],
     'validations' => [
         'date',
         'minMax' => function ($value) {
-            $min    = $this->min ? strtotime($this->min) : null;
-            $max    = $this->max ? strtotime($this->max) : null;
-            $value  = strtotime($this->value());
-            $format = 'd.m.Y';
-            $errors = [];
-
-            if ($value && $min && $value < $min) {
-                $errors['min'] = $min;
+            if (!$value = Date::optional($value)) {
+                return true;
             }
 
-            if ($value && $max && $value > $max) {
-                $errors['max'] = $max;
-            }
+            $min = Date::optional($this->min);
+            $max = Date::optional($this->max);
 
-            if (empty($errors) === false) {
-                if ($min && $max) {
-                    throw new Exception([
-                        'key' => 'validation.date.between',
-                        'data' => [
-                            'min' => date($format, $min),
-                            'max' => date($format, $max)
-                        ]
-                    ]);
-                } elseif ($min) {
-                    throw new Exception([
-                        'key' => 'validation.date.after',
-                        'data' => [
-                            'date' => date($format, $min),
-                        ]
-                    ]);
-                } else {
-                    throw new Exception([
-                        'key' => 'validation.date.before',
-                        'data' => [
-                            'date' => date($format, $max),
-                        ]
-                    ]);
-                }
+            $format = $this->time === false ? 'd.m.Y' : 'd.m.Y H:i';
+
+            if ($min && $max && $value->isBetween($min, $max) === false) {
+                throw new Exception([
+                    'key' => 'validation.date.between',
+                    'data' => [
+                        'min' => $min->format($format),
+                        'max' => $min->format($format)
+                    ]
+                ]);
+            } elseif ($min && $value->isMin($min) === false) {
+                throw new Exception([
+                    'key' => 'validation.date.after',
+                    'data' => [
+                        'date' => $min->format($format),
+                    ]
+                ]);
+            } elseif ($max && $value->isMax($max) === false) {
+                throw new Exception([
+                    'key' => 'validation.date.before',
+                    'data' => [
+                        'date' => $max->format($format),
+                    ]
+                ]);
             }
 
             return true;

@@ -3,11 +3,11 @@
 namespace Kirby\Cms;
 
 /**
- * The StructureObject reprents each item
+ * The StructureObject represents each item
  * in a Structure collection. StructureObjects
  * behave pretty much the same as Pages or Users
  * and have a Content object to access their fields.
- * All fields in a StructureObject are therefor also
+ * All fields in a StructureObject are therefore also
  * wrapped in a Field object and can be accessed in
  * the same way as Page fields. They also use the same
  * Field methods.
@@ -35,7 +35,7 @@ class StructureObject extends Model
     protected $id;
 
     /**
-     * @var Page|Site|File|User
+     * @var \Kirby\Cms\Site|\Kirby\Cms\Page|\Kirby\Cms\File|\Kirby\Cms\User|null
      */
     protected $parent;
 
@@ -61,7 +61,7 @@ class StructureObject extends Model
             return $this->$method;
         }
 
-        return $this->content()->get($method, $arguments);
+        return $this->content()->get($method);
     }
 
     /**
@@ -131,7 +131,7 @@ class StructureObject extends Model
      * Sets the Content object with the given parent
      *
      * @param array|null $content
-     * @return self
+     * @return $this
      */
     protected function setContent(array $content = null)
     {
@@ -146,7 +146,7 @@ class StructureObject extends Model
      * specified.
      *
      * @param string $id
-     * @return self
+     * @return $this
      */
     protected function setId(string $id)
     {
@@ -155,11 +155,10 @@ class StructureObject extends Model
     }
 
     /**
-     * Sets the parent Model. This can either be a
-     * Page, Site, File or User object
+     * Sets the parent Model
      *
-     * @param \Kirby\Cms\Model|null $parent
-     * @return self
+     * @return $this
+     * @param \Kirby\Cms\Site|\Kirby\Cms\Page|\Kirby\Cms\File|\Kirby\Cms\User|null $parent
      */
     protected function setParent(Model $parent = null)
     {
@@ -170,8 +169,8 @@ class StructureObject extends Model
     /**
      * Sets the parent Structure collection
      *
-     * @param \Kirby\Cms\Structure $structure
-     * @return self
+     * @param \Kirby\Cms\Structure|null $structure
+     * @return $this
      */
     protected function setStructure(Structure $structure = null)
     {

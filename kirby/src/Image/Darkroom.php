@@ -21,13 +21,30 @@ class Darkroom
         'im' => 'Kirby\Image\Darkroom\ImageMagick'
     ];
 
+    /**
+     * @var array
+     */
     protected $settings = [];
 
+    /**
+     * Darkroom constructor
+     *
+     * @param array $settings
+     */
     public function __construct(array $settings = [])
     {
         $this->settings = array_merge($this->defaults(), $settings);
     }
 
+    /**
+     * Creates a new Darkroom instance for the given
+     * type/driver
+     *
+     * @param string $type
+     * @param array $settings
+     * @return mixed
+     * @throws \Exception
+     */
     public static function factory(string $type, array $settings = [])
     {
         if (isset(static::$types[$type]) === false) {
@@ -38,12 +55,18 @@ class Darkroom
         return new $class($settings);
     }
 
+    /**
+     * Returns the default thumb settings
+     *
+     * @return array
+     */
     protected function defaults(): array
     {
         return [
             'autoOrient' => true,
-            'crop'       => false,
             'blur'       => false,
+            'crop'       => false,
+            'format'     => null,
             'grayscale'  => false,
             'height'     => null,
             'quality'    => 90,
@@ -51,6 +74,12 @@ class Darkroom
         ];
     }
 
+    /**
+     * Normalizes all thumb options
+     *
+     * @param array $options
+     * @return array
+     */
     protected function options(array $options = []): array
     {
         $options = array_merge($this->settings, $options);
@@ -84,6 +113,15 @@ class Darkroom
         return $options;
     }
 
+    /**
+     * Calculates the dimensions of the final thumb based
+     * on the given options and returns a full array with
+     * all the final options to be used for the image generator
+     *
+     * @param string $file
+     * @param array $options
+     * @return array
+     */
     public function preprocess(string $file, array $options = [])
     {
         $options    = $this->options($options);
@@ -96,6 +134,14 @@ class Darkroom
         return $options;
     }
 
+    /**
+     * This method must be replaced by the driver to run the
+     * actual image processing job.
+     *
+     * @param string $file
+     * @param array $options
+     * @return array
+     */
     public function process(string $file, array $options = []): array
     {
         return $this->preprocess($file, $options);

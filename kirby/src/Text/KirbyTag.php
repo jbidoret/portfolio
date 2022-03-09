@@ -2,6 +2,7 @@
 
 namespace Kirby\Text;
 
+use Kirby\Cms\App;
 use Kirby\Exception\BadMethodCallException;
 use Kirby\Exception\InvalidArgumentException;
 
@@ -45,9 +46,20 @@ class KirbyTag
             $type = static::$aliases[$type];
         }
 
+        $kirby    = $data['kirby'] ?? App::instance();
+        $defaults = $kirby->option('kirbytext.' . $type, []);
+        $attrs    = array_replace($defaults, $attrs);
+
+        // all available tag attributes
+        $availableAttrs = static::$types[$type]['attr'] ?? [];
+
         foreach ($attrs as $attrName => $attrValue) {
             $attrName = strtolower($attrName);
-            $this->$attrName = $attrValue;
+
+            // applies only defined attributes to safely update
+            if (in_array($attrName, $availableAttrs) === true) {
+                $this->{$attrName} = $attrValue;
+            }
         }
 
         $this->attrs   = $attrs;
@@ -76,15 +88,67 @@ class KirbyTag
     }
 
     /**
+     * Finds a file for the given path.
+     * The method first searches the file
+     * in the current parent, if it's a page.
+     * Afterwards it uses Kirby's global file finder.
+     *
+     * @param string $path
+     * @return \Kirby\Cms\File|null
+     */
+    public function file(string $path)
+    {
+        $parent = $this->parent();
+
+        if (
+            is_object($parent) === true &&
+            method_exists($parent, 'file') === true &&
+            $file = $parent->file($path)
+        ) {
+            return $file;
+        }
+
+        if (
+            is_a($parent, 'Kirby\Cms\File') === true &&
+            $file = $parent->page()->file($path)
+        ) {
+            return $file;
+        }
+
+        return $this->kirby()->file($path, null, true);
+    }
+    /**
+     * Returns the current Kirby instance
+     *
+     * @return \Kirby\Cms\App
+     */
+    public function kirby()
+    {
+        return $this->data['kirby'] ?? App::instance();
+    }
+
+    public function option(string $key, $default = null)
+    {
+        return $this->options[$key] ?? $default;
+    }
+
+    /**
      * @param string $string
      * @param array $data
      * @param array $options
-     * @return self
+     * @return static
      */
     public static function parse(string $string, array $data = [], array $options = [])
     {
         // remove the brackets, extract the first attribute (the tag type)
-        $tag  = trim(rtrim(ltrim($string, '('), ')'));
+        $tag  = trim(ltrim($string, '('));
+
+        // use substr instead of rtrim to keep non-tagged brackets
+        // (link: file.pdf text: Download (PDF))
+        if (substr($tag, -1) === ')') {
+            $tag = substr($tag, 0, -1);
+        }
+
         $type = trim(substr($tag, 0, strpos($tag, ':')));
         $type = strtolower($type);
         $attr = static::$types[$type]['attr'] ?? [];
@@ -95,7 +159,7 @@ class KirbyTag
 
         // extract all attributes
         $regex = sprintf('/(%s):/i', implode('|', $attr));
-        $search = preg_split($regex, $tag, false, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $search = preg_split($regex, $tag, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
 
         // $search is now an array with alternating keys and values
         // convert it to arrays of keys and values
@@ -119,9 +183,14 @@ class KirbyTag
         return new static($type, $value, $attributes, $data, $options);
     }
 
-    public function option(string $key, $default = null)
+    /**
+     * Returns the parent model
+     *
+     * @return \Kirby\Cms\Model|null
+     */
+    public function parent()
     {
-        return $this->options[$key] ?? $default;
+        return $this->data['parent'];
     }
 
     public function render(): string

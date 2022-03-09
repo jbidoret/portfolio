@@ -2,12 +2,11 @@
 
 namespace Kirby\Database;
 
-use Exception;
+use Closure;
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Toolkit\A;
 use Kirby\Toolkit\Str;
 use PDO;
-use PDOStatement;
 use Throwable;
 
 /**
@@ -38,7 +37,7 @@ class Database
     /**
      * The established connection
      *
-     * @var PDO|null
+     * @var \PDO|null
      */
     protected $connection;
 
@@ -78,7 +77,7 @@ class Database
     /**
      * The last error
      *
-     * @var Exception|null
+     * @var \Exception|null
      */
     protected $lastError;
 
@@ -113,16 +112,16 @@ class Database
     /**
      * The PDO query statement
      *
-     * @var PDOStatement|null
+     * @var \PDOStatement|null
      */
     protected $statement;
 
     /**
-     * Whitelists for table names
+     * List of existing tables in the database
      *
      * @var array|null
      */
-    protected $tableWhitelist;
+    protected $tables;
 
     /**
      * An array with all queries which are being made
@@ -155,10 +154,10 @@ class Database
     }
 
     /**
-     * Returns one of the started instance
+     * Returns one of the started instances
      *
-     * @param string $id
-     * @return self
+     * @param string|null $id
+     * @return static|null
      */
     public static function instance(string $id = null)
     {
@@ -179,7 +178,8 @@ class Database
      * Connects to a database
      *
      * @param array|null $params This can either be a config key or an array of parameters for the connection
-     * @return \Kirby\Database\Database
+     * @return \PDO|null
+     * @throws \Kirby\Exception\InvalidArgumentException
      */
     public function connect(array $params = null)
     {
@@ -205,12 +205,18 @@ class Database
         }
 
         // fetch the dsn and store it
-        $this->dsn = static::$types[$this->type]['dsn']($options);
+        $this->dsn = (static::$types[$this->type]['dsn'])($options);
 
         // try to connect
         $this->connection = new PDO($this->dsn, $options['user'], $options['password']);
         $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+
+        // TODO: behavior without this attribute would be preferrable
+        // (actual types instead of all strings) but would be a breaking change
+        if ($this->type === 'sqlite') {
+            $this->connection->setAttribute(PDO::ATTR_STRINGIFY_FETCHES, true);
+        }
 
         // store the connection
         static::$connections[$this->id] = $this;
@@ -222,15 +228,15 @@ class Database
     /**
      * Returns the currently active connection
      *
-     * @return \Kirby\Database\Database|null
+     * @return \PDO|null
      */
-    public function connection()
+    public function connection(): ?PDO
     {
         return $this->connection;
     }
 
     /**
-     * Sets the exception mode for the next query
+     * Sets the exception mode
      *
      * @param bool $fail
      * @return \Kirby\Database\Database
@@ -276,10 +282,10 @@ class Database
     /**
      * Adds a value to the db trace and also returns the entire trace if nothing is specified
      *
-     * @param array $data
+     * @param array|null $data
      * @return array
      */
-    public function trace($data = null): array
+    public function trace(array $data = null): array
     {
         // return the full trace
         if ($data === null) {
@@ -335,7 +341,7 @@ class Database
     /**
      * Returns the last db error
      *
-     * @return Throwable
+     * @return \Throwable
      */
     public function lastError()
     {
@@ -362,14 +368,13 @@ class Database
      */
     protected function hit(string $query, array $bindings = []): bool
     {
-
         // try to prepare and execute the sql
         try {
             $this->statement = $this->connection->prepare($query);
             $this->statement->execute($bindings);
 
             $this->affected  = $this->statement->rowCount();
-            $this->lastId    = $this->connection->lastInsertId();
+            $this->lastId    = Str::startsWith($query, 'insert ', true) ? $this->connection->lastInsertId() : null;
             $this->lastError = null;
 
             // store the final sql to add it to the trace later
@@ -395,15 +400,12 @@ class Database
             'error'    => $this->lastError
         ]);
 
-        // reset some stuff
-        $this->fail = false;
-
         // return true or false on success or failure
         return $this->lastError === null;
     }
 
     /**
-     * Exectues a sql query, which is expected to return a set of results
+     * Executes a sql query, which is expected to return a set of results
      *
      * @param string $query
      * @param array $bindings
@@ -426,7 +428,11 @@ class Database
         }
 
         // define the default flag for the fetch method
-        $flags = $options['fetch'] === 'array' ? PDO::FETCH_ASSOC : PDO::FETCH_CLASS|PDO::FETCH_PROPS_LATE;
+        if ($options['fetch'] instanceof Closure || $options['fetch'] === 'array') {
+            $flags = PDO::FETCH_ASSOC;
+        } else {
+            $flags = PDO::FETCH_CLASS|PDO::FETCH_PROPS_LATE;
+        }
 
         // add optional flags
         if (empty($options['flag']) === false) {
@@ -434,7 +440,7 @@ class Database
         }
 
         // set the fetch mode
-        if ($options['fetch'] === 'array') {
+        if ($options['fetch'] instanceof Closure || $options['fetch'] === 'array') {
             $this->statement->setFetchMode($flags);
         } else {
             $this->statement->setFetchMode($flags, $options['fetch']);
@@ -442,6 +448,13 @@ class Database
 
         // fetch that stuff
         $results = $this->statement->{$options['method']}();
+
+        // apply the fetch closure to all results if given
+        if ($options['fetch'] instanceof Closure) {
+            foreach ($results as $key => $result) {
+                $results[$key] = $options['fetch']($result, $key);
+            }
+        }
 
         if ($options['iterator'] === 'array') {
             return $this->lastResult = $results;
@@ -495,19 +508,19 @@ class Database
      */
     public function validateTable(string $table): bool
     {
-        if ($this->tableWhitelist === null) {
-            // Get the table whitelist from the database
-            $sql     = $this->sql()->tables($this->database);
+        if ($this->tables === null) {
+            // Get the list of tables from the database
+            $sql     = $this->sql()->tables();
             $results = $this->query($sql['query'], $sql['bindings']);
 
             if ($results) {
-                $this->tableWhitelist = $results->pluck('name');
+                $this->tables = $results->pluck('name');
             } else {
                 return false;
             }
         }
 
-        return in_array($table, $this->tableWhitelist) === true;
+        return in_array($table, $this->tables) === true;
     }
 
     /**
@@ -559,6 +572,11 @@ class Database
             }
         }
 
+        // update cache
+        if (in_array($table, $this->tables ?? []) !== true) {
+            $this->tables[] = $table;
+        }
+
         return true;
     }
 
@@ -568,10 +586,20 @@ class Database
      * @param string $table
      * @return bool
      */
-    public function dropTable($table): bool
+    public function dropTable(string $table): bool
     {
         $sql = $this->sql()->dropTable($table);
-        return $this->execute($sql['query'], $sql['bindings']);
+        if ($this->execute($sql['query'], $sql['bindings']) !== true) {
+            return false;
+        }
+
+        // update cache
+        $key = array_search($table, $this->tables ?? []);
+        if ($key !== false) {
+            unset($this->tables[$key]);
+        }
+
+        return true;
     }
 
     /**
@@ -581,6 +609,7 @@ class Database
      *
      * @param mixed $method
      * @param mixed $arguments
+     * @return \Kirby\Database\Query
      */
     public function __call($method, $arguments = null)
     {

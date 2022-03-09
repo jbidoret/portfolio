@@ -113,8 +113,8 @@ class Translation
      * string by key
      *
      * @param string $key
-     * @param string $default
-     * @return void
+     * @param string|null $default
+     * @return string|null
      */
     public function get(string $key, string $default = null): ?string
     {
@@ -139,15 +139,17 @@ class Translation
      * @param string $code
      * @param string $root
      * @param array $inject
-     * @return self
+     * @return static
      */
     public static function load(string $code, string $root, array $inject = [])
     {
         try {
-            return new Translation($code, array_merge(Data::read($root), $inject));
+            $data = array_merge(Data::read($root), $inject);
         } catch (Exception $e) {
-            return new Translation($code, []);
+            $data = [];
         }
+
+        return new static($code, $data);
     }
 
     /**

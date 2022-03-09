@@ -54,6 +54,8 @@ abstract class Picker
             'image' => [],
             // query template for the info field
             'info' => false,
+            // listing style: list, cards, cardlets
+            'layout' =>'list',
             // number of users displayed per pagination page
             'limit' => 20,
             // optional mapping function for the result array
@@ -98,11 +100,12 @@ abstract class Picker
             if (empty($this->options['map']) === false) {
                 $result[] = $this->options['map']($item);
             } else {
-                $result[] = $item->panelPickerData([
-                    'image' => $this->options['image'],
-                    'info'  => $this->options['info'],
-                    'model' => $this->options['model'],
-                    'text'  => $this->options['text'],
+                $result[] = $item->panel()->pickerData([
+                    'image'  => $this->options['image'],
+                    'info'   => $this->options['info'],
+                    'layout' => $this->options['layout'],
+                    'model'  => $this->options['model'],
+                    'text'   => $this->options['text'],
                 ]);
             }
         }
@@ -117,7 +120,7 @@ abstract class Picker
      * @param \Kirby\Cms\Collection $items
      * @return \Kirby\Cms\Collection
      */
-    public function paginate($items)
+    public function paginate(Collection $items)
     {
         return $items->paginate([
             'limit' => $this->options['limit'],
@@ -148,7 +151,7 @@ abstract class Picker
      * @param \Kirby\Cms\Collection $items
      * @return \Kirby\Cms\Collection
      */
-    public function search($items)
+    public function search(Collection $items)
     {
         if (empty($this->options['search']) === false) {
             return $items->search($this->options['search']);

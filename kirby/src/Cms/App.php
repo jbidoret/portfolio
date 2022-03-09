@@ -3,22 +3,25 @@
 namespace Kirby\Cms;
 
 use Kirby\Data\Data;
-use Kirby\Email\PHPMailer as Emailer;
 use Kirby\Exception\ErrorPageException;
 use Kirby\Exception\InvalidArgumentException;
+use Kirby\Exception\LogicException;
 use Kirby\Exception\NotFoundException;
+use Kirby\Filesystem\Dir;
+use Kirby\Filesystem\F;
 use Kirby\Http\Request;
 use Kirby\Http\Router;
 use Kirby\Http\Server;
+use Kirby\Http\Uri;
 use Kirby\Http\Visitor;
 use Kirby\Session\AutoSession;
 use Kirby\Text\KirbyTag;
+use Kirby\Text\KirbyTags;
 use Kirby\Toolkit\A;
 use Kirby\Toolkit\Config;
 use Kirby\Toolkit\Controller;
-use Kirby\Toolkit\Dir;
-use Kirby\Toolkit\F;
 use Kirby\Toolkit\Properties;
+use Throwable;
 
 /**
  * The `$kirby` object is the app instance of
@@ -45,13 +48,13 @@ class App
     use Properties;
 
     protected static $instance;
-    protected static $root;
     protected static $version;
 
     public $data = [];
 
     protected $api;
     protected $collections;
+    protected $core;
     protected $defaultLanguage;
     protected $language;
     protected $languages;
@@ -79,11 +82,11 @@ class App
      * Creates a new App instance
      *
      * @param array $props
+     * @param bool $setInstance If false, the instance won't be set globally
      */
-    public function __construct(array $props = [])
+    public function __construct(array $props = [], bool $setInstance = true)
     {
-        // the kirby folder directory
-        static::$root = dirname(__DIR__, 2);
+        $this->core = new Core($this);
 
         // register all roots to be able to load stuff afterwards
         $this->bakeRoots($props['roots'] ?? []);
@@ -91,6 +94,9 @@ class App
         // stuff from config and additional options
         $this->optionsFromConfig();
         $this->optionsFromProps($props['options'] ?? []);
+
+        // register the Whoops error handler
+        $this->handleErrors();
 
         // set the path to make it available for the url bakery
         $this->setPath($props['path'] ?? null);
@@ -110,7 +116,9 @@ class App
         ]);
 
         // set the singleton
-        Model::$kirby = static::$instance = $this;
+        if (static::$instance === null || $setInstance === true) {
+            Model::$kirby = static::$instance = $this;
+        }
 
         // setup the I18n class with the translation loader
         $this->i18n();
@@ -125,14 +133,11 @@ class App
         // trigger hook for use in plugins
         $this->trigger('system.loadPlugins:after');
 
-        // handle those damn errors
-        $this->handleErrors();
-
         // execute a ready callback from the config
         $this->optionsFromReadyCallback();
 
         // bake config
-        Config::$data = $this->options;
+        $this->bakeOptions();
     }
 
     /**
@@ -165,7 +170,7 @@ class App
             return $this->api;
         }
 
-        $root       = static::$root . '/config/api';
+        $root       = $this->root('kirby') . '/config/api';
         $extensions = $this->extensions['api'] ?? [];
         $routes     = (include $root . '/routes.php')($this);
 
@@ -183,48 +188,88 @@ class App
     }
 
     /**
-     * Applies a hook to the given value;
-     * the value that gets modified by the hooks
-     * is always the last argument
+     * Applies a hook to the given value
      *
      * @internal
-     * @param string $name Hook name
-     * @param mixed ...$args Arguments to pass to the hooks
+     * @param string $name Full event name
+     * @param array $args Associative array of named event arguments
+     * @param string $modify Key in $args that is modified by the hooks
+     * @param \Kirby\Cms\Event|null $originalEvent Event object (internal use)
      * @return mixed Resulting value as modified by the hooks
      */
-    public function apply(string $name, ...$args)
+    public function apply(string $name, array $args, string $modify, ?Event $originalEvent = null)
     {
-        // split up args into "passive" args and the value
-        $value = array_pop($args);
+        $event = $originalEvent ?? new Event($name, $args);
 
         if ($functions = $this->extension('hooks', $name)) {
             foreach ($functions as $function) {
-                // re-assemble args
-                $hookArgs   = $args;
-                $hookArgs[] = $value;
-
                 // bind the App object to the hook
-                $newValue = $function->call($this, ...$hookArgs);
+                $newValue = $event->call($this, $function);
 
                 // update value if one was returned
                 if ($newValue !== null) {
-                    $value = $newValue;
+                    $event->updateArgument($modify, $newValue);
                 }
             }
         }
 
-        return $value;
+        // apply wildcard hooks if available
+        $nameWildcards = $event->nameWildcards();
+        if ($originalEvent === null && count($nameWildcards) > 0) {
+            foreach ($nameWildcards as $nameWildcard) {
+                // the $event object is passed by reference
+                // and will be modified down the chain
+                $this->apply($nameWildcard, $event->arguments(), $modify, $event);
+            }
+        }
+
+        return $event->argument($modify);
+    }
+
+    /**
+     * Normalizes and globally sets the configured options
+     *
+     * @return $this
+     */
+    protected function bakeOptions()
+    {
+        // convert the old plugin option syntax to the new one
+        foreach ($this->options as $key => $value) {
+            // detect option keys with the `vendor.plugin.option` format
+            if (preg_match('/^([a-z0-9-]+\.[a-z0-9-]+)\.(.*)$/i', $key, $matches) === 1) {
+                list(, $plugin, $option) = $matches;
+
+                // verify that it's really a plugin option
+                if (isset(static::$plugins[str_replace('.', '/', $plugin)]) !== true) {
+                    continue;
+                }
+
+                // ensure that the target option array exists
+                // (which it will if the plugin has any options)
+                if (isset($this->options[$plugin]) !== true) {
+                    $this->options[$plugin] = []; // @codeCoverageIgnore
+                }
+
+                // move the option to the plugin option array
+                // don't overwrite nested arrays completely but merge them
+                $this->options[$plugin] = array_replace_recursive($this->options[$plugin], [$option => $value]);
+                unset($this->options[$key]);
+            }
+        }
+
+        Config::$data = $this->options;
+        return $this;
     }
 
     /**
      * Sets the directory structure
      *
-     * @param array $roots
-     * @return self
+     * @param array|null $roots
+     * @return $this
      */
     protected function bakeRoots(array $roots = null)
     {
-        $roots = array_merge(require static::$root . '/config/roots.php', (array)$roots);
+        $roots = array_merge($this->core->roots(), (array)$roots);
         $this->roots = Ingredients::bake($roots);
         return $this;
     }
@@ -232,8 +277,8 @@ class App
     /**
      * Sets the Url structure
      *
-     * @param array $urls
-     * @return self
+     * @param array|null $urls
+     * @return $this
      */
     protected function bakeUrls(array $urls = null)
     {
@@ -242,7 +287,7 @@ class App
             $urls['index'] = $this->options['url'];
         }
 
-        $urls = array_merge(require static::$root . '/config/urls.php', (array)$urls);
+        $urls = array_merge($this->core->urls(), (array)$urls);
         $this->urls = Ingredients::bake($urls);
         return $this;
     }
@@ -277,23 +322,50 @@ class App
     /**
      * Calls any Kirby route
      *
-     * @param string $path
-     * @param string $method
+     * @param string|null $path
+     * @param string|null $method
      * @return mixed
      */
     public function call(string $path = null, string $method = null)
     {
         $router = $this->router();
 
+        /**
+         * @todo Closures should not defined statically but
+         * for each instance to avoid this constant setting and unsetting
+         */
         $router::$beforeEach = function ($route, $path, $method) {
-            $this->trigger('route:before', $route, $path, $method);
+            $this->trigger('route:before', compact('route', 'path', 'method'));
         };
 
-        $router::$afterEach = function ($route, $path, $method, $result) {
-            return $this->apply('route:after', $route, $path, $method, $result);
+        $router::$afterEach = function ($route, $path, $method, $result, $final) {
+            return $this->apply('route:after', compact('route', 'path', 'method', 'result', 'final'), 'result');
         };
 
-        return $router->call($path ?? $this->path(), $method ?? $this->request()->method());
+        $result = $router->call($path ?? $this->path(), $method ?? $this->request()->method());
+
+        $router::$beforeEach = null;
+        $router::$afterEach  = null;
+
+        return $result;
+    }
+
+    /**
+     * Creates an instance with the same
+     * initial properties
+     *
+     * @param array $props
+     * @param bool $setInstance If false, the instance won't be set globally
+     * @return static
+     */
+    public function clone(array $props = [], bool $setInstance = true)
+    {
+        $props = array_replace_recursive($this->propertyData, $props);
+
+        $clone = new static($props, $setInstance);
+        $clone->data = $this->data;
+
+        return $clone;
     }
 
     /**
@@ -359,6 +431,31 @@ class App
     }
 
     /**
+     * Generates a non-guessable token based on model
+     * data and a configured salt
+     *
+     * @param mixed $model Object to pass to the salt callback if configured
+     * @param string $value Model data to include in the generated token
+     * @return string
+     */
+    public function contentToken($model, string $value): string
+    {
+        if (method_exists($model, 'root') === true) {
+            $default = $model->root();
+        } else {
+            $default = $this->root('content');
+        }
+
+        $salt = $this->option('content.salt', $default);
+
+        if (is_a($salt, 'Closure') === true) {
+            $salt = $salt($model);
+        }
+
+        return hash_hmac('sha1', $value, $salt);
+    }
+
+    /**
      * Calls a page controller by name
      * and with the given arguments
      *
@@ -420,6 +517,17 @@ class App
     }
 
     /**
+     * Get access to object that lists
+     * all parts of Kirby core
+     *
+     * @return \Kirby\Cms\Core
+     */
+    public function core()
+    {
+        return $this->core;
+    }
+
+    /**
      * Returns the default language object
      *
      * @return \Kirby\Cms\Language|null
@@ -442,7 +550,7 @@ class App
     }
 
     /**
-     * Detect the prefered language from the visitor object
+     * Detect the preferred language from the visitor object
      *
      * @return \Kirby\Cms\Language
      */
@@ -471,11 +579,14 @@ class App
      *
      * @param mixed $preset
      * @param array $props
-     * @return \Kirby\Email\PHPMailer
+     * @return \Kirby\Email\Email
      */
     public function email($preset = [], array $props = [])
     {
-        return new Emailer((new Email($preset, $props))->toArray(), $props['debug'] ?? false);
+        $debug = $props['debug'] ?? false;
+        $props = (new Email($preset, $props))->toArray();
+
+        return ($this->component('email'))($this, $props, $debug);
     }
 
     /**
@@ -524,13 +635,18 @@ class App
     /**
      * Returns the current App instance
      *
-     * @param \Kirby\Cms\App $instance
-     * @return self
+     * @param \Kirby\Cms\App|null $instance
+     * @param bool $lazy If `true`, the instance is only returned if already existing
+     * @return static|null
      */
-    public static function instance(self $instance = null)
+    public static function instance(self $instance = null, bool $lazy = false)
     {
         if ($instance === null) {
-            return static::$instance ?? new static();
+            if ($lazy === true) {
+                return static::$instance;
+            } else {
+                return static::$instance ?? new static();
+            }
         }
 
         return static::$instance = $instance;
@@ -552,12 +668,11 @@ class App
         // any direct exception will be turned into an error page
         if (is_a($input, 'Throwable') === true) {
             if (is_a($input, 'Kirby\Exception\Exception') === true) {
-                $code    = $input->getHttpCode();
-                $message = $input->getMessage();
+                $code = $input->getHttpCode();
             } else {
-                $code    = $input->getCode();
-                $message = $input->getMessage();
+                $code = $input->getCode();
             }
+            $message = $input->getMessage();
 
             if ($code < 400 || $code > 599) {
                 $code = 500;
@@ -632,7 +747,7 @@ class App
      *
      * @internal
      * @param string $type
-     * @param string $value
+     * @param string|null $value
      * @param array $attr
      * @param array $data
      * @return string
@@ -650,39 +765,54 @@ class App
      * KirbyTags Parser
      *
      * @internal
-     * @param string $text
+     * @param string|null $text
      * @param array $data
      * @return string
      */
     public function kirbytags(string $text = null, array $data = []): string
     {
-        $data['kirby']  = $data['kirby']  ?? $this;
-        $data['site']   = $data['site']   ?? $data['kirby']->site();
-        $data['parent'] = $data['parent'] ?? $data['site']->page();
+        $data['kirby']  ??= $this;
+        $data['site']   ??= $data['kirby']->site();
+        $data['parent'] ??= $data['site']->page();
 
-        return KirbyTags::parse($text, $data, $this->options, $this->extensions['hooks']);
+        $options = $this->options;
+
+        $text = $this->apply('kirbytags:before', compact('text', 'data', 'options'), 'text');
+        $text = KirbyTags::parse($text, $data, $options);
+        $text = $this->apply('kirbytags:after', compact('text', 'data', 'options'), 'text');
+
+        return $text;
     }
 
     /**
      * Parses KirbyTags first and Markdown afterwards
      *
      * @internal
-     * @param string $text
+     * @param string|null $text
      * @param array $data
-     * @param bool $inline
+     * @param bool $inline (deprecated: use $data['markdown']['inline'] instead)
      * @return string
+     * @todo add deprecation warning for $inline parameter in 3.7.0
+     * @todo rename $data parameter to $options in 3.7.0
+     * @todo remove $inline parameter in in 3.8.0
      */
     public function kirbytext(string $text = null, array $data = [], bool $inline = false): string
     {
-        $text = $this->apply('kirbytext:before', $text);
-        $text = $this->kirbytags($text, $data);
-        $text = $this->markdown($text, $inline);
+        $options = A::merge([
+            'markdown' => [
+                'inline' => $inline
+            ]
+        ], $data);
+
+        $text = $this->apply('kirbytext:before', compact('text'), 'text');
+        $text = $this->kirbytags($text, $options);
+        $text = $this->markdown($text, $options['markdown']);
 
         if ($this->option('smartypants', false) !== false) {
             $text = $this->smartypants($text);
         }
 
-        $text = $this->apply('kirbytext:after', $text);
+        $text = $this->apply('kirbytext:after', compact('text'), 'text');
 
         return $text;
     }
@@ -729,15 +859,26 @@ class App
     /**
      * Returns all available site languages
      *
+     * @param bool
      * @return \Kirby\Cms\Languages
      */
-    public function languages()
+    public function languages(bool $clone = true)
     {
         if ($this->languages !== null) {
-            return clone $this->languages;
+            return $clone === true ? clone $this->languages : $this->languages;
         }
 
         return $this->languages = Languages::load();
+    }
+
+    /**
+     * Access Kirby's part loader
+     *
+     * @return \Kirby\Cms\Loader
+     */
+    public function load()
+    {
+        return new Loader($this);
     }
 
     /**
@@ -758,13 +899,32 @@ class App
      * Parses Markdown
      *
      * @internal
-     * @param string $text
-     * @param bool $inline
+     * @param string|null $text
+     * @param bool|array $options
      * @return string
+     * @todo rename $inline parameter to $options in 3.7.0
+     * @todo add deprecation warning for boolean $options in 3.7.0
+     * @todo remove boolean $options in in 3.8.0
      */
-    public function markdown(string $text = null, bool $inline = false): string
+    public function markdown(string $text = null, $inline = null): string
     {
-        return $this->component('markdown')($this, $text, $this->options['markdown'] ?? [], $inline);
+        // TODO: remove after renaming parameter
+        $options = $inline;
+
+        // support for the old syntax to enable inline mode as second argument
+        if (is_bool($options) === true) {
+            $options = [
+                'inline' => $options
+            ];
+        }
+
+        // merge global options with local options
+        $options = array_merge(
+            $this->options['markdown'] ?? [],
+            (array)$options
+        );
+
+        return ($this->component('markdown'))($this, $text, $options);
     }
 
     /**
@@ -860,6 +1020,31 @@ class App
 
             // inject all last-minute options recursively
             $this->options = array_replace_recursive($this->options, $options);
+
+            // update the system with changed options
+            if (
+                isset($options['debug']) === true ||
+                isset($options['whoops']) === true ||
+                isset($options['editor']) === true
+            ) {
+                $this->handleErrors();
+            }
+
+            if (isset($options['debug']) === true) {
+                $this->api = null;
+            }
+
+            if (isset($options['home']) === true || isset($options['error']) === true) {
+                $this->site = null;
+            }
+
+            // checks custom language definition for slugs
+            if ($slugsOption = $this->option('slugs')) {
+                // slugs option must be set to string or "slugs" => ["language" => "de"] as array
+                if (is_string($slugsOption) === true || isset($slugsOption['language']) === true) {
+                    $this->i18n();
+                }
+            }
         }
 
         return $this->options;
@@ -868,7 +1053,7 @@ class App
     /**
      * Returns any page from the content folder
      *
-     * @param string $id|null
+     * @param string|null $id
      * @param \Kirby\Cms\Page|\Kirby\Cms\Site|null $parent
      * @param bool $drafts
      * @return \Kirby\Cms\Page|null
@@ -882,6 +1067,10 @@ class App
         $parent = $parent ?? $this->site();
 
         if ($page = $parent->find($id)) {
+            /**
+             * We passed a single $id, we can be sure that the result is
+             * @var \Kirby\Cms\Page $page
+             */
             return $page;
         }
 
@@ -940,9 +1129,10 @@ class App
      * Path resolver for the router
      *
      * @internal
-     * @param string $path
+     * @param string|null $path
      * @param string|null $language
      * @return mixed
+     * @throws \Kirby\Exception\NotFoundException if the home page cannot be found
      */
     public function resolve(string $path = null, string $language = null)
     {
@@ -986,10 +1176,16 @@ class App
         // when the page has been found
         if ($page) {
             try {
-                return $this
-                    ->response()
-                    ->body($page->render([], $extension))
-                    ->type($extension);
+                $response = $this->response();
+                $output   = $page->render([], $extension);
+
+                // attach a MIME type based on the representation
+                // only if no custom MIME type was set
+                if ($response->type() === null) {
+                    $response->type($extension);
+                }
+
+                return $response->body($output);
             } catch (NotFoundException $e) {
                 return null;
             }
@@ -1092,7 +1288,7 @@ class App
         }
 
         $registry = $this->extensions('routes');
-        $system   = (include static::$root . '/config/routes.php')($this);
+        $system   = $this->core->routes();
         $routes   = array_merge($system['before'], $registry, $system['after']);
 
         return $this->routes = $routes;
@@ -1106,6 +1302,10 @@ class App
      */
     public function session(array $options = [])
     {
+        // never cache responses that depend on the session
+        $this->response()->cache(false);
+        $this->response()->header('Cache-Control', 'no-store', true);
+
         return $this->sessionHandler()->get($options);
     }
 
@@ -1123,8 +1323,8 @@ class App
     /**
      * Create your own set of languages
      *
-     * @param array $languages
-     * @return self
+     * @param array|null $languages
+     * @return $this
      */
     protected function setLanguages(array $languages = null)
     {
@@ -1145,8 +1345,8 @@ class App
      * Sets the request path that is
      * used for the router
      *
-     * @param string $path
-     * @return self
+     * @param string|null $path
+     * @return $this
      */
     protected function setPath(string $path = null)
     {
@@ -1157,8 +1357,8 @@ class App
     /**
      * Sets the request
      *
-     * @param array $request
-     * @return self
+     * @param array|null $request
+     * @return $this
      */
     protected function setRequest(array $request = null)
     {
@@ -1172,8 +1372,8 @@ class App
     /**
      * Create your own set of roles
      *
-     * @param array $roles
-     * @return self
+     * @param array|null $roles
+     * @return $this
      */
     protected function setRoles(array $roles = null)
     {
@@ -1189,8 +1389,8 @@ class App
     /**
      * Sets a custom Site object
      *
-     * @param \Kirby\Cms\Site|array $site
-     * @return self
+     * @param \Kirby\Cms\Site|array|null $site
+     * @return $this
      */
     protected function setSite($site = null)
     {
@@ -1233,7 +1433,7 @@ class App
      * Applies the smartypants rule on the text
      *
      * @internal
-     * @param string $text
+     * @param string|null $text
      * @return string
      */
     public function smartypants(string $text = null): string
@@ -1254,7 +1454,7 @@ class App
             }
         }
 
-        return $this->component('smartypants')($this, $text, $options);
+        return ($this->component('smartypants'))($this, $text, $options);
     }
 
     /**
@@ -1268,7 +1468,7 @@ class App
      */
     public function snippet($name, array $data = []): ?string
     {
-        return $this->component('snippet')($this, $name, array_merge($this->data, $data));
+        return ($this->component('snippet'))($this, $name, array_merge($this->data, $data));
     }
 
     /**
@@ -1293,7 +1493,7 @@ class App
      */
     public function template(string $name, string $type = 'html', string $defaultType = 'html')
     {
-        return $this->component('template')($this, $name, $type, $defaultType);
+        return ($this->component('template'))($this, $name, $type, $defaultType);
     }
 
     /**
@@ -1306,19 +1506,22 @@ class App
      */
     public function thumb(string $src, string $dst, array $options = []): string
     {
-        return $this->component('thumb')($this, $src, $dst, $options);
+        return ($this->component('thumb'))($this, $src, $dst, $options);
     }
 
     /**
      * Trigger a hook by name
      *
      * @internal
-     * @param string $name
-     * @param mixed ...$arguments
+     * @param string $name Full event name
+     * @param array $args Associative array of named event arguments
+     * @param \Kirby\Cms\Event|null $originalEvent Event object (internal use)
      * @return void
      */
-    public function trigger(string $name, ...$arguments)
+    public function trigger(string $name, array $args = [], ?Event $originalEvent = null)
     {
+        $event = $originalEvent ?? new Event($name, $args);
+
         if ($functions = $this->extension('hooks', $name)) {
             static $level = 0;
             static $triggered = [];
@@ -1333,7 +1536,7 @@ class App
                 $triggered[$name][] = $function;
 
                 // bind the App object to the hook
-                $function->call($this, ...$arguments);
+                $event->call($this, $function);
             }
 
             $level--;
@@ -1342,17 +1545,40 @@ class App
                 $triggered = [];
             }
         }
+
+        // trigger wildcard hooks if available
+        $nameWildcards = $event->nameWildcards();
+        if ($originalEvent === null && count($nameWildcards) > 0) {
+            foreach ($nameWildcards as $nameWildcard) {
+                $this->trigger($nameWildcard, $args, $event);
+            }
+        }
     }
 
     /**
      * Returns a system url
      *
      * @param string $type
-     * @return string
+     * @param bool $object If set to `true`, the URL is converted to an object
+     * @return string|\Kirby\Http\Uri
      */
-    public function url(string $type = 'index'): string
+    public function url(string $type = 'index', bool $object = false)
     {
-        return $this->urls->__get($type);
+        $url = $this->urls->__get($type);
+
+        if ($object === true) {
+            if (Url::isAbsolute($url)) {
+                return Url::toObject($url);
+            }
+
+            // index URL was configured without host, use the current host
+            return Uri::current([
+                'path'   => $url,
+                'query'  => null
+            ]);
+        }
+
+        return $url;
     }
 
     /**
@@ -1370,10 +1596,15 @@ class App
      * the composer.json (Keep that up to date! :))
      *
      * @return string|null
+     * @throws \Kirby\Exception\LogicException if the Kirby version cannot be detected
      */
     public static function version(): ?string
     {
-        return static::$version = static::$version ?? Data::read(static::$root . '/composer.json')['version'] ?? null;
+        try {
+            return static::$version = static::$version ?? Data::read(dirname(__DIR__, 2) . '/composer.json')['version'] ?? null;
+        } catch (Throwable $e) {
+            throw new LogicException('The Kirby version cannot be detected. The composer.json is probably missing or not readable.');
+        }
     }
 
     /**
@@ -1389,7 +1620,7 @@ class App
     /**
      * Returns the visitor object
      *
-     * @return \Kirby\Cms\Visitor
+     * @return \Kirby\Http\Visitor
      */
     public function visitor()
     {

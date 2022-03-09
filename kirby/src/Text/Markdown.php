@@ -37,8 +37,9 @@ class Markdown
     public function defaults(): array
     {
         return [
+            'breaks' => true,
             'extra'  => false,
-            'breaks' => true
+            'safe'   => false
         ];
     }
 
@@ -56,11 +57,11 @@ class Markdown
     /**
      * Parses the given text and returns the HTML
      *
-     * @param string $text
+     * @param string|null $text
      * @param bool $inline
      * @return string
      */
-    public function parse(string $text, bool $inline = false): string
+    public function parse(string $text = null, bool $inline = false): string
     {
         if ($this->options['extra'] === true) {
             $parser = new ParsedownExtra();
@@ -69,6 +70,7 @@ class Markdown
         }
 
         $parser->setBreaksEnabled($this->options['breaks']);
+        $parser->setSafeMode($this->options['safe']);
 
         if ($inline === true) {
             return @$parser->line($text);

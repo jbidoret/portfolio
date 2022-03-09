@@ -1,10 +1,15 @@
 <?php
 
-use Kirby\Data\Yaml;
+use Kirby\Data\Data;
 use Kirby\Toolkit\A;
 
 return [
-    'mixins' => ['min', 'picker', 'userpicker'],
+    'mixins' => [
+        'layout',
+        'min',
+        'picker',
+        'userpicker'
+    ],
     'props' => [
         /**
          * Unset inherited props
@@ -44,17 +49,18 @@ return [
     ],
     'methods' => [
         'userResponse' => function ($user) {
-            return $user->panelPickerData([
-                'info'  => $this->info,
-                'image' => $this->image,
-                'text'  => $this->text,
+            return $user->panel()->pickerData([
+                'info'   => $this->info,
+                'image'  => $this->image,
+                'layout' => $this->layout,
+                'text'   => $this->text,
             ]);
         },
         'toUsers' => function ($value = null) {
             $users = [];
             $kirby = kirby();
 
-            foreach (Yaml::decode($value) as $email) {
+            foreach (Data::decode($value, 'yaml') as $email) {
                 if (is_array($email) === true) {
                     $email = $email['email'] ?? null;
                 }
@@ -77,6 +83,7 @@ return [
                     return $field->userpicker([
                         'image'  => $field->image(),
                         'info'   => $field->info(),
+                        'layout' => $field->layout(),
                         'limit'  => $field->limit(),
                         'page'   => $this->requestQuery('page'),
                         'query'  => $field->query(),

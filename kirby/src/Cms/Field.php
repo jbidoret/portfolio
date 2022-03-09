@@ -2,7 +2,6 @@
 
 namespace Kirby\Cms;
 
-use Closure;
 use Kirby\Exception\InvalidArgumentException;
 
 /**
@@ -76,14 +75,14 @@ class Field
         $method = strtolower($method);
 
         if (isset(static::$methods[$method]) === true) {
-            return static::$methods[$method](clone $this, ...$arguments);
+            return (static::$methods[$method])(clone $this, ...$arguments);
         }
 
         if (isset(static::$aliases[$method]) === true) {
             $method = strtolower(static::$aliases[$method]);
 
             if (isset(static::$methods[$method]) === true) {
-                return static::$methods[$method](clone $this, ...$arguments);
+                return (static::$methods[$method])(clone $this, ...$arguments);
             }
         }
 
@@ -93,11 +92,11 @@ class Field
     /**
      * Creates a new field object
      *
-     * @param object $parent
+     * @param object|null $parent
      * @param string $key
      * @param mixed $value
      */
-    public function __construct($parent = null, string $key, $value)
+    public function __construct(?object $parent, string $key, $value)
     {
         $this->key    = $key;
         $this->value  = $value;
@@ -108,7 +107,7 @@ class Field
      * Simplifies the var_dump result
      *
      * @see Field::toArray
-     * @return void
+     * @return array
      */
     public function __debugInfo()
     {
@@ -180,7 +179,7 @@ class Field
      * Provides a fallback if the field value is empty
      *
      * @param mixed $fallback
-     * @return self
+     * @return $this|static
      */
     public function or($fallback = null)
     {
@@ -232,8 +231,9 @@ class Field
      * the modified field will be returned. Otherwise it
      * will return the field value.
      *
-     * @param string|Closure $value
+     * @param string|\Closure $value
      * @return mixed
+     * @throws \Kirby\Exception\InvalidArgumentException
      */
     public function value($value = null)
     {

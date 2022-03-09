@@ -28,10 +28,10 @@ return [
             return $image ?? [];
         },
         /**
-         * Optional info text setup. Info text is shown on the right (lists) or below (cards) the filename.
+         * Optional info text setup. Info text is shown on the right (lists, cardlets) or below (cards) the filename.
          */
-        'info' => function (string $info = null) {
-            return $info;
+        'info' => function ($info = null) {
+            return I18n::translate($info, $info);
         },
         /**
          * The size option controls the size of cards. By default cards are auto-sized and the cards grid will always fill the full width. With a size you can disable auto-sizing. Available sizes: `tiny`, `small`, `medium`, `large`, `huge`
@@ -60,8 +60,8 @@ return [
         /**
          * Setup for the main text in the list or cards. By default this will display the filename.
          */
-        'text' => function (string $text = '{{ file.filename }}') {
-            return $text;
+        'text' => function ($text = '{{ file.filename }}') {
+            return I18n::translate($text, $text);
         }
     ],
     'computed' => [
@@ -69,10 +69,11 @@ return [
             if ($this->template) {
                 $file = new File([
                     'filename' => 'tmp',
+                    'parent'   => $this->model(),
                     'template' => $this->template
                 ]);
 
-                return $file->blueprint()->accept()['mime'] ?? '*';
+                return $file->blueprint()->acceptMime();
             }
 
             return null;
@@ -83,10 +84,13 @@ return [
         'files' => function () {
             $files = $this->parent->files()->template($this->template);
 
+            // filter out all protected files
+            $files = $files->filter('isReadable', true);
+
             if ($this->sortBy) {
-                $files = $files->sortBy(...$files::sortArgs($this->sortBy));
-            } elseif ($this->sortable === true) {
-                $files = $files->sortBy('sort', 'asc', 'filename', 'asc');
+                $files = $files->sort(...$files::sortArgs($this->sortBy));
+            } else {
+                $files = $files->sorted();
             }
 
             // flip
@@ -96,8 +100,9 @@ return [
 
             // apply the default pagination
             $files = $files->paginate([
-                'page'  => $this->page,
-                'limit' => $this->limit
+                'page'   => $this->page,
+                'limit'  => $this->limit,
+                'method' => 'none' // the page is manually provided
             ]);
 
             return $files;
@@ -110,21 +115,21 @@ return [
             $dragTextAbsolute = $this->model->is($this->parent) === false;
 
             foreach ($this->files as $file) {
-                $image = $file->panelImage($this->image);
+                $panel = $file->panel();
 
                 $data[] = [
-                    'dragText' => $file->dragText('auto', $dragTextAbsolute),
+                    'dragText'  => $panel->dragText('auto', $dragTextAbsolute),
                     'extension' => $file->extension(),
-                    'filename' => $file->filename(),
-                    'id'       => $file->id(),
-                    'icon'     => $file->panelIcon($image),
-                    'image'    => $image,
-                    'info'     => $file->toString($this->info ?? false),
-                    'link'     => $file->panelUrl(true),
-                    'mime'     => $file->mime(),
-                    'parent'   => $file->parent()->panelPath(),
-                    'text'     => $file->toString($this->text),
-                    'url'      => $file->url(),
+                    'filename'  => $file->filename(),
+                    'id'        => $file->id(),
+                    'image'     => $panel->image($this->image, $this->layout),
+                    'info'      => $file->toSafeString($this->info ?? false),
+                    'link'      => $panel->url(true),
+                    'mime'      => $file->mime(),
+                    'parent'    => $file->parent()->panel()->path(),
+                    'template'  => $file->template(),
+                    'text'      => $file->toSafeString($this->text),
+                    'url'       => $file->url(),
                 ];
             }
 
@@ -162,8 +167,8 @@ return [
             ];
         },
         'link' => function () {
-            $modelLink  = $this->model->panelUrl(true);
-            $parentLink = $this->parent->panelUrl(true);
+            $modelLink  = $this->model->panel()->url(true);
+            $parentLink = $this->parent->panel()->url(true);
 
             if ($modelLink !== $parentLink) {
                 return $parentLink;
@@ -202,13 +207,16 @@ return [
                 $multiple = true;
             }
 
+            $template = $this->template === 'default' ? null : $this->template;
+
             return [
                 'accept'     => $this->accept,
                 'multiple'   => $multiple,
                 'max'        => $max,
                 'api'        => $this->parent->apiUrl(true) . '/files',
                 'attributes' => array_filter([
-                    'template' => $this->template
+                    'sort'     => $this->sortable === true ? $total + 1 : null,
+                    'template' => $template
                 ])
             ];
         }
@@ -219,6 +227,7 @@ return [
             'errors'  => $this->errors,
             'options' => [
                 'accept'   => $this->accept,
+                'apiUrl'   => $this->parent->apiUrl(true),
                 'empty'    => $this->empty,
                 'headline' => $this->headline,
                 'help'     => $this->help,
