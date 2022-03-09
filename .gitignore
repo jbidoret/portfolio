@@ -7,9 +7,11 @@ Icon
 # Content files
 # ---------------
 
-/content/*
+# /content/*
 !/content/error/*
 !/content/home/*
+!/content/1_projets/projects.txt
+!/content/2_a-propos/about.txt
 !/content/site.txt
 
 
