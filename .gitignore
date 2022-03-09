@@ -4,6 +4,15 @@
 Icon
 .DS_Store
 
+# Content files
+# ---------------
+
+/content/*
+!/content/error/*
+!/content/home/*
+!/content/site.txt
+
+
 # Temporary files
 # ---------------
 
