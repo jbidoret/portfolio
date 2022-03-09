@@ -9,7 +9,7 @@ https://github.com/jbidoret/portfolio/archive/master.zip
 
 - Un serveur de développement : [MAMP](http://mamp.info/) ou [XAMPP](https://www.apachefriends.org/index.html) ;
 - Un éditeur de code : [VS Code](https://code.visualstudio.com/) ou [Atom](https://atom.io/) ;
-- Un hébergeur : [Alwaysdata](https://alwaysdata.com/) ou [OVH](https://ovh.com). NB: les étudiants de l’ÉSAD Pyrénées peuvent créer un compte Alwaysdata gratuit à partir d’[ici](https://alws.link/y1xs4zWf) ;
+- Un hébergeur : [Alwaysdata](https://alwaysdata.com/) ou [OVH](https://ovh.com) ;
 - Un navigateur récent : [Firefox](https://www.mozilla.org/fr/firefox/) ou [Chrome](https://www.google.fr/chrome/).
 
 ## Installation
