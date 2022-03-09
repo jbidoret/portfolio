@@ -1,0 +1,9 @@
+title: Projets
+
+sections: 
+    
+  projects:
+    extends: sections/projects
+    status: all
+    layout: cards
+

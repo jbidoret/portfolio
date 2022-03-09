@@ -1,0 +1,12 @@
+type: pages
+headline: Projets
+parent: kirby.page("projets")
+layout: cards
+templates: 
+  - project
+info: "{{ page.subtitle }} – {{ page.intendedTemplate }}"
+image:
+  query: page.cover.tofile
+  cover: true
+  ratio: 16/9
+  back: black

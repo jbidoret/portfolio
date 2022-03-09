@@ -1,0 +1,11 @@
+title: Home
+fields:
+  a_la_une:
+    label: Projet à la une
+    type: pages
+    multiple: false
+    query: kirby.page("projets")  
+  text:
+    label: Texte d’introduction
+    type: textarea    
+
