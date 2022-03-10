@@ -1,12 +1,14 @@
 <?php snippet("header") ?>
 
     <main>
+      
       <h1><?= $page->title() ?></h1>
       <?php if($page->text()->isNotEmpty() ) :?>
         <div class="text">
           <?= $page->text()->kt() ?>
       </div>
       <?php endif ?>
+      
       <div class="project-gallery">
         <?php foreach($page->gallery()->toFiles() as $image): 
           if($image->is_big()->toBool()) {
@@ -23,7 +25,7 @@
               </figcaption>
             <?php endif ?>
           </figure>
-        <? endforeach ?>
+        <?php endforeach ?>
       </div>
     </main>
 
