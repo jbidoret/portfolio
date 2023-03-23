@@ -2,77 +2,65 @@
 
 namespace Kirby\Http\Request\Auth;
 
+use Kirby\Http\Request\Auth;
 use Kirby\Toolkit\Str;
+use SensitiveParameter;
 
 /**
- * Basic Authentication
+ * HTTP basic authentication data
+ *
+ * @package   Kirby Http
+ * @author    Bastian Allgeier <bastian@getkirby.com>
+ * @link      https://getkirby.com
+ * @copyright Bastian Allgeier
+ * @license   https://opensource.org/licenses/MIT
  */
-class BasicAuth extends BearerAuth
+class BasicAuth extends Auth
 {
-    /**
-     * @var string
-     */
-    protected $credentials;
+	protected string $credentials;
+	protected string|null $password;
+	protected string|null $username;
 
-    /**
-     * @var string
-     */
-    protected $password;
+	public function __construct(
+		#[SensitiveParameter]
+		string $data
+	) {
+		parent::__construct($data);
 
-    /**
-     * @var string
-     */
-    protected $username;
+		$this->credentials = base64_decode($data);
+		$this->username    = Str::before($this->credentials, ':');
+		$this->password    = Str::after($this->credentials, ':');
+	}
 
-    /**
-     * @param string $token
-     */
-    public function __construct(string $token)
-    {
-        parent::__construct($token);
+	/**
+	 * Returns the entire unencoded credentials string
+	 */
+	public function credentials(): string
+	{
+		return $this->credentials;
+	}
 
-        $this->credentials = base64_decode($token);
-        $this->username    = Str::before($this->credentials, ':');
-        $this->password    = Str::after($this->credentials, ':');
-    }
+	/**
+	 * Returns the password
+	 */
+	public function password(): string|null
+	{
+		return $this->password;
+	}
 
-    /**
-     * Returns the entire unencoded credentials string
-     *
-     * @return string
-     */
-    public function credentials(): string
-    {
-        return $this->credentials;
-    }
+	/**
+	 * Returns the authentication type
+	 */
+	public function type(): string
+	{
+		return 'basic';
+	}
 
-    /**
-     * Returns the password
-     *
-     * @return string|null
-     */
-    public function password(): ?string
-    {
-        return $this->password;
-    }
-
-    /**
-     * Returns the authentication type
-     *
-     * @return string
-     */
-    public function type(): string
-    {
-        return 'basic';
-    }
-
-    /**
-     * Returns the username
-     *
-     * @return string|null
-     */
-    public function username(): ?string
-    {
-        return $this->username;
-    }
+	/**
+	 * Returns the username
+	 */
+	public function username(): string|null
+	{
+		return $this->username;
+	}
 }

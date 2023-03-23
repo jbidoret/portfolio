@@ -13,34 +13,30 @@ use Exception;
  * @package   Kirby Panel
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://getkirby.com/license
  */
 class Redirect extends Exception
 {
-    /**
-     * Returns the HTTP code for the redirect
-     *
-     * @return int
-     */
-    public function code(): int
-    {
-        $codes = [301, 302, 303, 307, 308];
+	/**
+	 * Returns the HTTP code for the redirect
+	 */
+	public function code(): int
+	{
+		$codes = [301, 302, 303, 307, 308];
 
-        if (in_array($this->getCode(), $codes) === true) {
-            return $this->getCode();
-        }
+		if (in_array($this->getCode(), $codes) === true) {
+			return $this->getCode();
+		}
 
-        return 302;
-    }
+		return 302;
+	}
 
-    /**
-     * Returns the URL for the redirect
-     *
-     * @return string
-     */
-    public function location(): string
-    {
-        return $this->getMessage();
-    }
+	/**
+	 * Returns the URL for the redirect
+	 */
+	public function location(): string
+	{
+		return $this->getMessage();
+	}
 }

@@ -1,4 +1,7 @@
 <?php
+
+use Kirby\Cms\Url;
+
 /**
  * @var \Kirby\Cms\App $kirby
  * @var string $icons
@@ -32,7 +35,13 @@
   <?php endforeach ?>
 
   <?php foreach ($assets['icons'] as $rel => $icon): ?>
-  <link nonce="<?= $nonce ?>" rel="<?= $rel ?>" href="<?= url($icon['url']) ?>" type="<?= $icon['type'] ?>">
+  <link nonce="<?= $nonce ?>" rel="<?= $rel ?>" href="<?= Url::to($icon['url']) ?>" type="<?= $icon['type'] ?>">
+  <?php endforeach ?>
+
+  <?php foreach ($assets['js'] as $js): ?>
+  <?php if (($js['type'] ?? null) === 'module'): ?>
+  <link rel="modulepreload" href="<?= $js['src'] ?>">
+  <?php endif ?>
   <?php endforeach ?>
 
   <base href="<?= $panelUrl ?>">
@@ -56,8 +65,15 @@
     window.fiber = json;
   </script>
 
-  <?php foreach ($assets['js'] as $js): ?>
+  <?php foreach ($assets['js'] as $key => $js): ?>
+  <?php if ($key === 'index'): ?>
+  <script type="module" nonce="<?= $nonce ?>">
+    <?= $assets['plugin-imports'] ?>
+    import('<?= $js['src'] ?>')
+  </script>
+  <?php else: ?>
   <?= Html::tag('script', '', $js) . PHP_EOL ?>
+  <?php endif ?>
   <?php endforeach ?>
 
 </body>

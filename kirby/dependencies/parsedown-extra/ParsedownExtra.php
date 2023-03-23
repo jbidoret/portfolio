@@ -17,7 +17,7 @@ class ParsedownExtra extends Parsedown
 {
     # ~
 
-    const version = '0.8.0-beta-1';
+    public const version = '0.8.0-beta-1';
 
     # ~
 
@@ -465,7 +465,7 @@ class ParsedownExtra extends Parsedown
             ),
         );
 
-        uasort($this->DefinitionData['Footnote'], 'self::sortFootnotes');
+        uasort($this->DefinitionData['Footnote'], [$this,'sortFootnotes']);
 
         foreach ($this->DefinitionData['Footnote'] as $definitionId => $DefinitionData) {
             if (! isset($DefinitionData['number'])) {
@@ -568,11 +568,21 @@ class ParsedownExtra extends Parsedown
         # http://stackoverflow.com/q/1148928/200145
         libxml_use_internal_errors(true);
 
-        $DOMDocument = new DOMDocument;
+        $DOMDocument = new DOMDocument();
 
-        # http://stackoverflow.com/q/11309194/200145
-        $elementMarkup = mb_convert_encoding($elementMarkup, 'HTML-ENTITIES', 'UTF-8');
-        
+		// Migrating away from `mb_convert_encoding($elementMarkup,
+		//'HTML-ENTITIES', 'UTF-8');` has caused multibyte characters like
+		// emojis not to be converted into entities, which is needed so that
+		// the `DOM` extension can properly parse the markup.
+		// The following line works like this: It treats the input string
+		// as UTF-8 and converts every Unicode character with 8 or more bits
+		// (= character code starting at 128 or 0x80 up to the Unicode limit
+		// of 0x10ffff) to an entity; the third and fourth arguments for the
+		// map are not needed for our use case and are set to the default values
+		// (no offset and a full mask)
+		// [http://stackoverflow.com/q/11309194/200145]
+		$elementMarkup = mb_encode_numericentity($elementMarkup, [0x80, 0x10ffff, 0, 0xffffff], 'UTF-8');
+
         # Ensure that saveHTML() is not remove new line characters. New lines will be split by this character.
         $DOMDocument->formatOutput = true;
 

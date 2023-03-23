@@ -10,64 +10,49 @@ namespace Kirby\Toolkit;
  * @package   Kirby Toolkit
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://opensource.org/licenses/MIT
  */
 class Silo
 {
-    /**
-     * @var array
-     */
-    public static $data = [];
+	public static $data = [];
 
-    /**
-     * Setter for new data.
-     *
-     * @param string|array $key
-     * @param mixed $value
-     * @return array
-     */
-    public static function set($key, $value = null): array
-    {
-        if (is_array($key) === true) {
-            return static::$data = array_merge(static::$data, $key);
-        } else {
-            static::$data[$key] = $value;
-            return static::$data;
-        }
-    }
+	/**
+	 * Setter for new data
+	 */
+	public static function set(string|array $key, $value = null): array
+	{
+		if (is_array($key) === true) {
+			return static::$data = array_merge(static::$data, $key);
+		}
 
-    /**
-     * @param string|array $key
-     * @param mixed $default
-     * @return mixed
-     */
-    public static function get($key = null, $default = null)
-    {
-        if ($key === null) {
-            return static::$data;
-        }
+		static::$data[$key] = $value;
+		return static::$data;
+	}
 
-        return A::get(static::$data, $key, $default);
-    }
+	public static function get(string|array $key = null, $default = null)
+	{
+		if ($key === null) {
+			return static::$data;
+		}
 
-    /**
-     * Removes an item from the data array
-     *
-     * @param string|null $key
-     * @return array
-     */
-    public static function remove(string $key = null): array
-    {
-        // reset the entire array
-        if ($key === null) {
-            return static::$data = [];
-        }
+		return A::get(static::$data, $key, $default);
+	}
 
-        // unset a single key
-        unset(static::$data[$key]);
+	/**
+	 * Removes an item from the data array
+	 */
+	public static function remove(string $key = null): array
+	{
+		// reset the entire array
+		if ($key === null) {
+			return static::$data = [];
+		}
 
-        // return the array without the removed key
-        return static::$data;
-    }
+		// unset a single key
+		unset(static::$data[$key]);
+
+		// return the array without the removed key
+		return static::$data;
+	}
 }

@@ -12,86 +12,99 @@ use Exception;
  * @package   Kirby Cms
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://getkirby.com/license
  */
 class Items extends Collection
 {
-    const ITEM_CLASS = '\Kirby\Cms\Item';
+	public const ITEM_CLASS = Item::class;
 
-    /**
-     * @var array
-     */
-    protected $options;
+	protected Field|null $field;
 
-    /**
-     * @var \Kirby\Cms\ModelWithContent
-     */
-    protected $parent;
+	/**
+	 * @var array
+	 */
+	protected $options;
 
-    /**
-     * Constructor
-     *
-     * @param array $objects
-     * @param array $options
-     */
-    public function __construct($objects = [], array $options = [])
-    {
-        $this->options = $options;
-        $this->parent  = $options['parent'] ?? site();
+	/**
+	 * @var \Kirby\Cms\ModelWithContent
+	 */
+	protected $parent;
 
-        parent::__construct($objects, $this->parent);
-    }
+	/**
+	 * Constructor
+	 *
+	 * @param array $objects
+	 * @param array $options
+	 */
+	public function __construct($objects = [], array $options = [])
+	{
+		$this->options = $options;
+		$this->parent  = $options['parent'] ?? App::instance()->site();
+		$this->field   = $options['field']  ?? null;
 
-    /**
-     * Creates a new item collection from a
-     * an array of item props
-     *
-     * @param array $items
-     * @param array $params
-     * @return \Kirby\Cms\Items
-     */
-    public static function factory(array $items = null, array $params = [])
-    {
-        $options = array_merge([
-            'options' => [],
-            'parent'  => site(),
-        ], $params);
+		parent::__construct($objects, $this->parent);
+	}
 
-        if (empty($items) === true || is_array($items) === false) {
-            return new static();
-        }
+	/**
+	 * Creates a new item collection from a
+	 * an array of item props
+	 *
+	 * @param array $items
+	 * @param array $params
+	 * @return \Kirby\Cms\Items
+	 */
+	public static function factory(array $items = null, array $params = [])
+	{
+		$options = array_merge([
+			'field'   => null,
+			'options' => [],
+			'parent'  => App::instance()->site(),
+		], $params);
 
-        if (is_array($options) === false) {
-            throw new Exception('Invalid item options');
-        }
+		if (empty($items) === true || is_array($items) === false) {
+			return new static();
+		}
 
-        // create a new collection of blocks
-        $collection = new static([], $options);
+		if (is_array($options) === false) {
+			throw new Exception('Invalid item options');
+		}
 
-        foreach ($items as $params) {
-            if (is_array($params) === false) {
-                continue;
-            }
+		// create a new collection of blocks
+		$collection = new static([], $options);
 
-            $params['options']  = $options['options'];
-            $params['parent']   = $options['parent'];
-            $params['siblings'] = $collection;
-            $class = static::ITEM_CLASS;
-            $item  = $class::factory($params);
-            $collection->append($item->id(), $item);
-        }
+		foreach ($items as $params) {
+			if (is_array($params) === false) {
+				continue;
+			}
 
-        return $collection;
-    }
+			$params['field']    = $options['field'];
+			$params['options']  = $options['options'];
+			$params['parent']   = $options['parent'];
+			$params['siblings'] = $collection;
+			$class = static::ITEM_CLASS;
+			$item  = $class::factory($params);
+			$collection->append($item->id(), $item);
+		}
 
-    /**
-     * Convert the items to an array
-     *
-     * @return array
-     */
-    public function toArray(Closure $map = null): array
-    {
-        return array_values(parent::toArray($map));
-    }
+		return $collection;
+	}
+
+	/**
+	 * Returns the parent field if known
+	 */
+	public function field(): Field|null
+	{
+		return $this->field;
+	}
+
+	/**
+	 * Convert the items to an array
+	 *
+	 * @return array
+	 */
+	public function toArray(Closure $map = null): array
+	{
+		return array_values(parent::toArray($map));
+	}
 }

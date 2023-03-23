@@ -2,6 +2,7 @@
 
 namespace Kirby\Api;
 
+use Closure;
 use Exception;
 use Kirby\Toolkit\Str;
 
@@ -16,233 +17,208 @@ use Kirby\Toolkit\Str;
  * @package   Kirby Api
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://getkirby.com/license
  */
 class Model
 {
-    /**
-     * @var \Kirby\Api\Api
-     */
-    protected $api;
+	protected Api $api;
+	protected $data;
+	protected $fields;
+	protected $select;
+	protected $views;
 
-    /**
-     * @var mixed|null
-     */
-    protected $data;
+	/**
+	 * Model constructor
+	 *
+	 * @throws \Exception
+	 */
+	public function __construct(Api $api, $data, array $schema)
+	{
+		$this->api    = $api;
+		$this->data   = $data;
+		$this->fields = $schema['fields'] ?? [];
+		$this->select = $schema['select'] ?? null;
+		$this->views  = $schema['views']  ?? [];
 
-    /**
-     * @var array|mixed
-     */
-    protected $fields;
+		if (
+			$this->select === null &&
+			array_key_exists('default', $this->views)
+		) {
+			$this->view('default');
+		}
 
-    /**
-     * @var mixed|null
-     */
-    protected $select;
+		if ($data === null) {
+			if (($schema['default'] ?? null) instanceof Closure === false) {
+				throw new Exception('Missing model data');
+			}
 
-    /**
-     * @var array|mixed
-     */
-    protected $views;
+			$this->data = $schema['default']->call($this->api);
+		}
 
-    /**
-     * Model constructor
-     *
-     * @param \Kirby\Api\Api $api
-     * @param mixed $data
-     * @param array $schema
-     * @throws \Exception
-     */
-    public function __construct(Api $api, $data, array $schema)
-    {
-        $this->api    = $api;
-        $this->data   = $data;
-        $this->fields = $schema['fields'] ?? [];
-        $this->select = $schema['select'] ?? null;
-        $this->views  = $schema['views']  ?? [];
+		if (
+			isset($schema['type']) === true &&
+			$this->data instanceof $schema['type'] === false
+		) {
+			throw new Exception(sprintf('Invalid model type "%s" expected: "%s"', get_class($this->data), $schema['type']));
+		}
+	}
 
-        if ($this->select === null && array_key_exists('default', $this->views)) {
-            $this->view('default');
-        }
+	/**
+	 * @return $this
+	 * @throws \Exception
+	 */
+	public function select($keys = null): static
+	{
+		if ($keys === false) {
+			return $this;
+		}
 
-        if ($data === null) {
-            if (is_a($schema['default'] ?? null, 'Closure') === false) {
-                throw new Exception('Missing model data');
-            }
+		if (is_string($keys)) {
+			$keys = Str::split($keys);
+		}
 
-            $this->data = $schema['default']->call($this->api);
-        }
+		if ($keys !== null && is_array($keys) === false) {
+			throw new Exception('Invalid select keys');
+		}
 
-        if (
-            isset($schema['type']) === true &&
-            is_a($this->data, $schema['type']) === false
-        ) {
-            throw new Exception(sprintf('Invalid model type "%s" expected: "%s"', get_class($this->data), $schema['type']));
-        }
-    }
+		$this->select = $keys;
+		return $this;
+	}
 
-    /**
-     * @param null $keys
-     * @return $this
-     * @throws \Exception
-     */
-    public function select($keys = null)
-    {
-        if ($keys === false) {
-            return $this;
-        }
+	/**
+	 * @throws \Exception
+	 */
+	public function selection(): array
+	{
+		$select    = $this->select;
+		$select  ??= array_keys($this->fields);
+		$selection = [];
 
-        if (is_string($keys)) {
-            $keys = Str::split($keys);
-        }
+		foreach ($select as $key => $value) {
+			if (is_int($key) === true) {
+				$selection[$value] = [
+					'view'   => null,
+					'select' => null
+				];
+				continue;
+			}
 
-        if ($keys !== null && is_array($keys) === false) {
-            throw new Exception('Invalid select keys');
-        }
+			if (is_string($value) === true) {
+				if ($value === 'any') {
+					throw new Exception('Invalid sub view: "any"');
+				}
 
-        $this->select = $keys;
-        return $this;
-    }
+				$selection[$key] = [
+					'view'   => $value,
+					'select' => null
+				];
 
-    /**
-     * @return array
-     * @throws \Exception
-     */
-    public function selection(): array
-    {
-        $select = $this->select;
+				continue;
+			}
 
-        if ($select === null) {
-            $select = array_keys($this->fields);
-        }
+			if (is_array($value) === true) {
+				$selection[$key] = [
+					'view'   => null,
+					'select' => $value
+				];
+			}
+		}
 
-        $selection = [];
+		return $selection;
+	}
 
-        foreach ($select as $key => $value) {
-            if (is_int($key) === true) {
-                $selection[$value] = [
-                    'view'   => null,
-                    'select' => null
-                ];
-                continue;
-            }
+	/**
+	 * @throws \Kirby\Exception\NotFoundException
+	 * @throws \Exception
+	 */
+	public function toArray(): array
+	{
+		$select = $this->selection();
+		$result = [];
 
-            if (is_string($value) === true) {
-                if ($value === 'any') {
-                    throw new Exception('Invalid sub view: "any"');
-                }
+		foreach ($this->fields as $key => $resolver) {
+			if (
+				array_key_exists($key, $select) === false ||
+				$resolver instanceof Closure === false
+			) {
+				continue;
+			}
 
-                $selection[$key] = [
-                    'view'   => $value,
-                    'select' => null
-                ];
+			$value = $resolver->call($this->api, $this->data);
 
-                continue;
-            }
+			if (is_object($value)) {
+				$value = $this->api->resolve($value);
+			}
 
-            if (is_array($value) === true) {
-                $selection[$key] = [
-                    'view'   => null,
-                    'select' => $value
-                ];
-            }
-        }
+			if (
+				$value instanceof Collection ||
+				$value instanceof self
+			) {
+				$selection = $select[$key];
 
-        return $selection;
-    }
+				if ($subview = $selection['view']) {
+					$value->view($subview);
+				}
 
-    /**
-     * @return array
-     * @throws \Kirby\Exception\NotFoundException
-     * @throws \Exception
-     */
-    public function toArray(): array
-    {
-        $select = $this->selection();
-        $result = [];
+				if ($subselect = $selection['select']) {
+					$value->select($subselect);
+				}
 
-        foreach ($this->fields as $key => $resolver) {
-            if (array_key_exists($key, $select) === false || is_a($resolver, 'Closure') === false) {
-                continue;
-            }
+				$value = $value->toArray();
+			}
 
-            $value = $resolver->call($this->api, $this->data);
+			$result[$key] = $value;
+		}
 
-            if (is_object($value)) {
-                $value = $this->api->resolve($value);
-            }
+		ksort($result);
 
-            if (
-                is_a($value, 'Kirby\Api\Collection') === true ||
-                is_a($value, 'Kirby\Api\Model') === true
-            ) {
-                $selection = $select[$key];
+		return $result;
+	}
 
-                if ($subview = $selection['view']) {
-                    $value->view($subview);
-                }
+	/**
+	 * @throws \Kirby\Exception\NotFoundException
+	 * @throws \Exception
+	 */
+	public function toResponse(): array
+	{
+		$model = $this;
 
-                if ($subselect = $selection['select']) {
-                    $value->select($subselect);
-                }
+		if ($select = $this->api->requestQuery('select')) {
+			$model = $model->select($select);
+		}
 
-                $value = $value->toArray();
-            }
+		if ($view = $this->api->requestQuery('view')) {
+			$model = $model->view($view);
+		}
 
-            $result[$key] = $value;
-        }
+		return [
+			'code'   => 200,
+			'data'   => $model->toArray(),
+			'status' => 'ok',
+			'type'   => 'model'
+		];
+	}
 
-        ksort($result);
+	/**
+	 * @return $this
+	 * @throws \Exception
+	 */
+	public function view(string $name): static
+	{
+		if ($name === 'any') {
+			return $this->select(null);
+		}
 
-        return $result;
-    }
+		if (isset($this->views[$name]) === false) {
+			$name = 'default';
 
-    /**
-     * @return array
-     * @throws \Kirby\Exception\NotFoundException
-     * @throws \Exception
-     */
-    public function toResponse(): array
-    {
-        $model = $this;
+			// try to fall back to the default view at least
+			if (isset($this->views[$name]) === false) {
+				throw new Exception(sprintf('The view "%s" does not exist', $name));
+			}
+		}
 
-        if ($select = $this->api->requestQuery('select')) {
-            $model = $model->select($select);
-        }
-
-        if ($view = $this->api->requestQuery('view')) {
-            $model = $model->view($view);
-        }
-
-        return [
-            'code'   => 200,
-            'data'   => $model->toArray(),
-            'status' => 'ok',
-            'type'   => 'model'
-        ];
-    }
-
-    /**
-     * @param string $name
-     * @return $this
-     * @throws \Exception
-     */
-    public function view(string $name)
-    {
-        if ($name === 'any') {
-            return $this->select(null);
-        }
-
-        if (isset($this->views[$name]) === false) {
-            $name = 'default';
-
-            // try to fall back to the default view at least
-            if (isset($this->views[$name]) === false) {
-                throw new Exception(sprintf('The view "%s" does not exist', $name));
-            }
-        }
-
-        return $this->select($this->views[$name]);
-    }
+		return $this->select($this->views[$name]);
+	}
 }
