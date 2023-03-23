@@ -1,68 +1,126 @@
 <?php
 
+use Kirby\Exception\Exception;
+use Kirby\Toolkit\Date;
+use Kirby\Toolkit\I18n;
+
 return [
-    'props' => [
-        /**
-         * Unset inherited props
-         */
-        'placeholder' => null,
+	'mixins' => ['datetime'],
+	'props' => [
+		/**
+		 * Unset inherited props
+		 */
+		'placeholder' => null,
 
-        /**
-         * Sets the default time when a new page/file/user is created
-         */
-        'default' => function ($default = null) {
-            return $default;
-        },
-        /**
-         * Changes the clock icon
-         */
-        'icon' => function (string $icon = 'clock') {
-            return $icon;
-        },
-        /**
-         * `12` or `24` hour notation. If `12`, an AM/PM selector will be shown.
-         */
-        'notation' => function (int $value = 24) {
-            return $value === 24 ? 24 : 12;
-        },
-        /**
-         * The interval between minutes in the minutes select dropdown.
-         */
-        'step' => function (int $step = 5) {
-            return $step;
-        },
-        'value' => function ($value = null) {
-            return $value;
-        }
-    ],
-    'computed' => [
-        'default' => function () {
-            return $this->toTime($this->default);
-        },
-        'format' => function () {
-            return $this->notation === 24 ? 'H:i' : 'h:i a';
-        },
-        'value' => function () {
-            return $this->toTime($this->value);
-        }
-    ],
-    'methods' => [
-        'toTime' => function ($value) {
-            if ($timestamp = timestamp($value, $this->step)) {
-                return date('H:i', $timestamp);
-            }
+		/**
+		 * Sets the default time when a new page/file/user is created
+		 */
+		'default' => function ($default = null): string|null {
+			return $default;
+		},
 
-            return null;
-        }
-    ],
-    'save' => function ($value): string {
-        if ($timestamp = strtotime($value)) {
-            return date($this->format, $timestamp);
-        }
+		/**
+		 * Custom format (dayjs tokens: `HH`, `hh`, `mm`, `ss`, `a`) that is
+		 * used to display the field in the Panel
+		 */
+		'display' => function ($display = null) {
+			return I18n::translate($display, $display);
+		},
 
-        return '';
-    },
-    'validations' => [
-        'time',
-    ]
+		/**
+		 * Changes the clock icon
+		 */
+		'icon' => function (string $icon = 'clock') {
+			return $icon;
+		},
+		/**
+		 * Latest time, which can be selected/saved (H:i or H:i:s)
+		 */
+		'max' => function (string $max = null): string|null {
+			return Date::optional($max);
+		},
+		/**
+		 * Earliest time, which can be selected/saved (H:i or H:i:s)
+		 */
+		'min' => function (string $min = null): string|null {
+			return Date::optional($min);
+		},
+
+		/**
+		 * `12` or `24` hour notation. If `12`, an AM/PM selector will be shown.
+		 * If `display` is defined, that option will take priority.
+		 */
+		'notation' => function (int $value = 24) {
+			return $value === 24 ? 24 : 12;
+		},
+		/**
+		 * Round to the nearest: sub-options for `unit` (minute) and `size` (5)
+		 */
+		'step' => function ($step = null) {
+			return Date::stepConfig($step, [
+				'size' => 5,
+				'unit' => 'minute',
+			]);
+		},
+		'value' => function ($value = null): string|null {
+			return $value;
+		}
+	],
+	'computed' => [
+		'display' => function () {
+			if ($this->display) {
+				return $this->display;
+			}
+
+			return $this->notation === 24 ? 'HH:mm' : 'hh:mm a';
+		},
+		'default' => function (): string {
+			return $this->toDatetime($this->default, 'H:i:s') ?? '';
+		},
+		'format' => function () {
+			return $this->props['format'] ?? 'H:i:s';
+		},
+		'value' => function (): string|null {
+			return $this->toDatetime($this->value, 'H:i:s') ?? '';
+		}
+	],
+	'validations' => [
+		'time',
+		'minMax' => function ($value) {
+			if (!$value = Date::optional($value)) {
+				return true;
+			}
+
+			$min = Date::optional($this->min);
+			$max = Date::optional($this->max);
+
+			$format = 'H:i:s';
+
+			if ($min && $max && $value->isBetween($min, $max) === false) {
+				throw new Exception([
+					'key' => 'validation.time.between',
+					'data' => [
+						'min' => $min->format($format),
+						'max' => $min->format($format)
+					]
+				]);
+			} elseif ($min && $value->isMin($min) === false) {
+				throw new Exception([
+					'key' => 'validation.time.after',
+					'data' => [
+						'time' => $min->format($format),
+					]
+				]);
+			} elseif ($max && $value->isMax($max) === false) {
+				throw new Exception([
+					'key' => 'validation.time.before',
+					'data' => [
+						'time' => $max->format($format),
+					]
+				]);
+			}
+
+			return true;
+		},
+	]
 ];

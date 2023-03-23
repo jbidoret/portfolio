@@ -4,233 +4,208 @@ use Kirby\Cms\File;
 use Kirby\Toolkit\I18n;
 
 return [
-    'mixins' => [
-        'empty',
-        'headline',
-        'help',
-        'layout',
-        'min',
-        'max',
-        'pagination',
-        'parent',
-    ],
-    'props' => [
-        /**
-         * Enables/disables reverse sorting
-         */
-        'flip' => function (bool $flip = false) {
-            return $flip;
-        },
-        /**
-         * Image options to control the source and look of file previews
-         */
-        'image' => function ($image = null) {
-            return $image ?? [];
-        },
-        /**
-         * Optional info text setup. Info text is shown on the right (lists) or below (cards) the filename.
-         */
-        'info' => function (string $info = null) {
-            return $info;
-        },
-        /**
-         * The size option controls the size of cards. By default cards are auto-sized and the cards grid will always fill the full width. With a size you can disable auto-sizing. Available sizes: `tiny`, `small`, `medium`, `large`, `huge`
-         */
-        'size' => function (string $size = 'auto') {
-            return $size;
-        },
-        /**
-         * Enables/disables manual sorting
-         */
-        'sortable' => function (bool $sortable = true) {
-            return $sortable;
-        },
-        /**
-         * Overwrites manual sorting and sorts by the given field and sorting direction (i.e. `filename desc`)
-         */
-        'sortBy' => function (string $sortBy = null) {
-            return $sortBy;
-        },
-        /**
-         * Filters all files by template and also sets the template, which will be used for all uploads
-         */
-        'template' => function (string $template = null) {
-            return $template;
-        },
-        /**
-         * Setup for the main text in the list or cards. By default this will display the filename.
-         */
-        'text' => function (string $text = '{{ file.filename }}') {
-            return $text;
-        }
-    ],
-    'computed' => [
-        'accept' => function () {
-            if ($this->template) {
-                $file = new File([
-                    'filename' => 'tmp',
-                    'template' => $this->template
-                ]);
+	'mixins' => [
+		'details',
+		'empty',
+		'headline',
+		'help',
+		'layout',
+		'min',
+		'max',
+		'pagination',
+		'parent',
+		'search',
+		'sort'
+	],
+	'props' => [
+		/**
+		 * Filters all files by template and also sets the template, which will be used for all uploads
+		 */
+		'template' => function (string $template = null) {
+			return $template;
+		},
+		/**
+		 * Setup for the main text in the list or cards. By default this will display the filename.
+		 */
+		'text' => function ($text = '{{ file.filename }}') {
+			return I18n::translate($text, $text);
+		}
+	],
+	'computed' => [
+		'accept' => function () {
+			if ($this->template) {
+				$file = new File([
+					'filename' => 'tmp',
+					'parent'   => $this->model(),
+					'template' => $this->template
+				]);
 
-                return $file->blueprint()->accept()['mime'] ?? '*';
-            }
+				return $file->blueprint()->acceptMime();
+			}
 
-            return null;
-        },
-        'parent' => function () {
-            return $this->parentModel();
-        },
-        'files' => function () {
-            $files = $this->parent->files()->template($this->template);
+			return null;
+		},
+		'parent' => function () {
+			return $this->parentModel();
+		},
+		'files' => function () {
+			$files = $this->parent->files()->template($this->template);
 
-            if ($this->sortBy) {
-                $files = $files->sortBy(...$files::sortArgs($this->sortBy));
-            } elseif ($this->sortable === true) {
-                $files = $files->sortBy('sort', 'asc', 'filename', 'asc');
-            }
+			// filter out all protected files
+			$files = $files->filter('isReadable', true);
 
-            // flip
-            if ($this->flip === true) {
-                $files = $files->flip();
-            }
+			// search
+			if ($this->search === true && empty($this->searchterm()) === false) {
+				$files = $files->search($this->searchterm());
 
-            // apply the default pagination
-            $files = $files->paginate([
-                'page'  => $this->page,
-                'limit' => $this->limit
-            ]);
+				// disable flip and sortBy while searching
+				// to show most relevant results
+				$this->flip = false;
+				$this->sortBy = null;
+			}
 
-            return $files;
-        },
-        'data' => function () {
-            $data = [];
+			// sort
+			if ($this->sortBy) {
+				$files = $files->sort(...$files::sortArgs($this->sortBy));
+			} else {
+				$files = $files->sorted();
+			}
 
-            // the drag text needs to be absolute when the files come from
-            // a different parent model
-            $dragTextAbsolute = $this->model->is($this->parent) === false;
+			// flip
+			if ($this->flip === true) {
+				$files = $files->flip();
+			}
 
-            foreach ($this->files as $file) {
-                $image = $file->panelImage($this->image);
+			// apply the default pagination
+			$files = $files->paginate([
+				'page'   => $this->page,
+				'limit'  => $this->limit,
+				'method' => 'none' // the page is manually provided
+			]);
 
-                $data[] = [
-                    'dragText' => $file->dragText('auto', $dragTextAbsolute),
-                    'extension' => $file->extension(),
-                    'filename' => $file->filename(),
-                    'id'       => $file->id(),
-                    'icon'     => $file->panelIcon($image),
-                    'image'    => $image,
-                    'info'     => $file->toString($this->info ?? false),
-                    'link'     => $file->panelUrl(true),
-                    'mime'     => $file->mime(),
-                    'parent'   => $file->parent()->panelPath(),
-                    'text'     => $file->toString($this->text),
-                    'url'      => $file->url(),
-                ];
-            }
+			return $files;
+		},
+		'data' => function () {
+			$data = [];
 
-            return $data;
-        },
-        'total' => function () {
-            return $this->files->pagination()->total();
-        },
-        'errors' => function () {
-            $errors = [];
+			// the drag text needs to be absolute when the files come from
+			// a different parent model
+			$dragTextAbsolute = $this->model->is($this->parent) === false;
 
-            if ($this->validateMax() === false) {
-                $errors['max'] = I18n::template('error.section.files.max.' . I18n::form($this->max), [
-                    'max'     => $this->max,
-                    'section' => $this->headline
-                ]);
-            }
+			foreach ($this->files as $file) {
+				$panel = $file->panel();
 
-            if ($this->validateMin() === false) {
-                $errors['min'] = I18n::template('error.section.files.min.' . I18n::form($this->min), [
-                    'min'     => $this->min,
-                    'section' => $this->headline
-                ]);
-            }
+				$item = [
+					'dragText'  => $panel->dragText('auto', $dragTextAbsolute),
+					'extension' => $file->extension(),
+					'filename'  => $file->filename(),
+					'id'        => $file->id(),
+					'image'     => $panel->image(
+						$this->image,
+						$this->layout === 'table' ? 'list' : $this->layout
+					),
+					'info'      => $file->toSafeString($this->info ?? false),
+					'link'      => $panel->url(true),
+					'mime'      => $file->mime(),
+					'parent'    => $file->parent()->panel()->path(),
+					'template'  => $file->template(),
+					'text'      => $file->toSafeString($this->text),
+					'url'       => $file->url(),
+				];
 
-            if (empty($errors) === true) {
-                return [];
-            }
+				if ($this->layout === 'table') {
+					$item = $this->columnsValues($item, $file);
+				}
 
-            return [
-                $this->name => [
-                    'label'   => $this->headline,
-                    'message' => $errors,
-                ]
-            ];
-        },
-        'link' => function () {
-            $modelLink  = $this->model->panelUrl(true);
-            $parentLink = $this->parent->panelUrl(true);
+				$data[] = $item;
+			}
 
-            if ($modelLink !== $parentLink) {
-                return $parentLink;
-            }
-        },
-        'pagination' => function () {
-            return $this->pagination();
-        },
-        'sortable' => function () {
-            if ($this->sortable === false) {
-                return false;
-            }
+			return $data;
+		},
+		'total' => function () {
+			return $this->files->pagination()->total();
+		},
+		'errors' => function () {
+			$errors = [];
 
-            if ($this->sortBy !== null) {
-                return false;
-            }
+			if ($this->validateMax() === false) {
+				$errors['max'] = I18n::template('error.section.files.max.' . I18n::form($this->max), [
+					'max'     => $this->max,
+					'section' => $this->headline
+				]);
+			}
 
-            if ($this->flip === true) {
-                return false;
-            }
+			if ($this->validateMin() === false) {
+				$errors['min'] = I18n::template('error.section.files.min.' . I18n::form($this->min), [
+					'min'     => $this->min,
+					'section' => $this->headline
+				]);
+			}
 
-            return true;
-        },
-        'upload' => function () {
-            if ($this->isFull() === true) {
-                return false;
-            }
+			if (empty($errors) === true) {
+				return [];
+			}
 
-            // count all uploaded files
-            $total = count($this->data);
-            $max   = $this->max ? $this->max - $total : null;
+			return [
+				$this->name => [
+					'label'   => $this->headline,
+					'message' => $errors,
+				]
+			];
+		},
+		'pagination' => function () {
+			return $this->pagination();
+		},
+		'upload' => function () {
+			if ($this->isFull() === true) {
+				return false;
+			}
 
-            if ($this->max && $total === $this->max - 1) {
-                $multiple = false;
-            } else {
-                $multiple = true;
-            }
+			// count all uploaded files
+			$total = count($this->data);
+			$max   = $this->max ? $this->max - $total : null;
 
-            return [
-                'accept'     => $this->accept,
-                'multiple'   => $multiple,
-                'max'        => $max,
-                'api'        => $this->parent->apiUrl(true) . '/files',
-                'attributes' => array_filter([
-                    'template' => $this->template
-                ])
-            ];
-        }
-    ],
-    'toArray' => function () {
-        return [
-            'data'    => $this->data,
-            'errors'  => $this->errors,
-            'options' => [
-                'accept'   => $this->accept,
-                'empty'    => $this->empty,
-                'headline' => $this->headline,
-                'help'     => $this->help,
-                'layout'   => $this->layout,
-                'link'     => $this->link,
-                'max'      => $this->max,
-                'min'      => $this->min,
-                'size'     => $this->size,
-                'sortable' => $this->sortable,
-                'upload'   => $this->upload
-            ],
-            'pagination' => $this->pagination
-        ];
-    }
+			if ($this->max && $total === $this->max - 1) {
+				$multiple = false;
+			} else {
+				$multiple = true;
+			}
+
+			$template = $this->template === 'default' ? null : $this->template;
+
+			return [
+				'accept'     => $this->accept,
+				'multiple'   => $multiple,
+				'max'        => $max,
+				'api'        => $this->parent->apiUrl(true) . '/files',
+				'attributes' => array_filter([
+					'sort'     => $this->sortable === true ? $total + 1 : null,
+					'template' => $template
+				])
+			];
+		}
+	],
+	'toArray' => function () {
+		return [
+			'data'    => $this->data,
+			'errors'  => $this->errors,
+			'options' => [
+				'accept'   => $this->accept,
+				'apiUrl'   => $this->parent->apiUrl(true),
+				'columns'  => $this->columns,
+				'empty'    => $this->empty,
+				'headline' => $this->headline,
+				'help'     => $this->help,
+				'layout'   => $this->layout,
+				'link'     => $this->link(),
+				'max'      => $this->max,
+				'min'      => $this->min,
+				'search'   => $this->search,
+				'size'     => $this->size,
+				'sortable' => $this->sortable,
+				'upload'   => $this->upload
+			],
+			'pagination' => $this->pagination
+		];
+	}
 ];

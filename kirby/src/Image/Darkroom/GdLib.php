@@ -2,9 +2,8 @@
 
 namespace Kirby\Image\Darkroom;
 
-ini_set('memory_limit', '512M');
-
 use claviska\SimpleImage;
+use Kirby\Filesystem\Mime;
 use Kirby\Image\Darkroom;
 
 /**
@@ -13,61 +12,90 @@ use Kirby\Image\Darkroom;
  * @package   Kirby Image
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://opensource.org/licenses/MIT
  */
 class GdLib extends Darkroom
 {
-    public function process(string $file, array $options = []): array
-    {
-        $options = $this->preprocess($file, $options);
+	/**
+	 * Processes the image with the SimpleImage library
+	 */
+	public function process(string $file, array $options = []): array
+	{
+		$options = $this->preprocess($file, $options);
+		$mime    = $this->mime($options);
 
-        $image = new SimpleImage();
-        $image->fromFile($file);
+		$image = new SimpleImage();
+		$image->fromFile($file);
 
-        $image = $this->resize($image, $options);
-        $image = $this->autoOrient($image, $options);
-        $image = $this->blur($image, $options);
-        $image = $this->grayscale($image, $options);
+		$image = $this->resize($image, $options);
+		$image = $this->autoOrient($image, $options);
+		$image = $this->blur($image, $options);
+		$image = $this->grayscale($image, $options);
 
-        $image->toFile($file, null, $options['quality']);
+		$image->toFile($file, $mime, $options['quality']);
 
-        return $options;
-    }
+		return $options;
+	}
 
-    protected function autoOrient(SimpleImage $image, $options)
-    {
-        if ($options['autoOrient'] === false) {
-            return $image;
-        }
+	/**
+	 * Activates the autoOrient option in SimpleImage
+	 * unless this is deactivated
+	 */
+	protected function autoOrient(SimpleImage $image, array $options): SimpleImage
+	{
+		if ($options['autoOrient'] === false) {
+			return $image;
+		}
 
-        return $image->autoOrient();
-    }
+		return $image->autoOrient();
+	}
 
-    protected function resize(SimpleImage $image, array $options)
-    {
-        if ($options['crop'] === false) {
-            return $image->resize($options['width'], $options['height']);
-        }
+	/**
+	 * Wrapper around SimpleImage's resize and crop methods
+	 */
+	protected function resize(SimpleImage $image, array $options): SimpleImage
+	{
+		if ($options['crop'] === false) {
+			return $image->resize($options['width'], $options['height']);
+		}
 
-        return $image->thumbnail($options['width'], $options['height'] ?? $options['width'], $options['crop']);
-    }
+		return $image->thumbnail($options['width'], $options['height'] ?? $options['width'], $options['crop']);
+	}
 
-    protected function blur(SimpleImage $image, array $options)
-    {
-        if ($options['blur'] === false) {
-            return $image;
-        }
+	/**
+	 * Applies the correct blur settings for SimpleImage
+	 */
+	protected function blur(SimpleImage $image, array $options): SimpleImage
+	{
+		if ($options['blur'] === false) {
+			return $image;
+		}
 
-        return $image->blur('gaussian', (int)$options['blur']);
-    }
+		return $image->blur('gaussian', (int)$options['blur']);
+	}
 
-    protected function grayscale(SimpleImage $image, array $options)
-    {
-        if ($options['grayscale'] === false) {
-            return $image;
-        }
+	/**
+	 * Applies grayscale conversion if activated in the options.
+	 */
+	protected function grayscale(SimpleImage $image, array $options): SimpleImage
+	{
+		if ($options['grayscale'] === false) {
+			return $image;
+		}
 
-        return $image->desaturate();
-    }
+		return $image->desaturate();
+	}
+
+	/**
+	 * Returns mime type based on `format` option
+	 */
+	protected function mime(array $options): string|null
+	{
+		if ($options['format'] === null) {
+			return null;
+		}
+
+		return Mime::fromExtension($options['format']);
+	}
 }

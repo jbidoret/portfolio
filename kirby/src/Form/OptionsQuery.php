@@ -5,10 +5,10 @@ namespace Kirby\Form;
 use Kirby\Cms\Field;
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Exception\NotFoundException;
+use Kirby\Query\Query;
 use Kirby\Toolkit\Collection;
 use Kirby\Toolkit\Obj;
 use Kirby\Toolkit\Properties;
-use Kirby\Toolkit\Query;
 use Kirby\Toolkit\Str;
 
 /**
@@ -20,161 +20,254 @@ use Kirby\Toolkit\Str;
  * @package   Kirby Form
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://opensource.org/licenses/MIT
+ *
+ * @deprecated 3.8.0 Use `Kirby\Option\OptionsQuery` instead
  */
 class OptionsQuery
 {
-    use Properties;
+	use Properties;
 
-    protected $aliases = [];
-    protected $data;
-    protected $options;
-    protected $query;
-    protected $text;
-    protected $value;
+	/**
+	 * @var array
+	 */
+	protected $aliases = [];
 
-    public function __construct(array $props)
-    {
-        $this->setProperties($props);
-    }
+	/**
+	 * @var array
+	 */
+	protected $data;
 
-    public function aliases(): array
-    {
-        return $this->aliases;
-    }
+	/**
+	 * @var array|string|null
+	 */
+	protected $options;
 
-    public function data(): array
-    {
-        return $this->data;
-    }
+	/**
+	 * @var string
+	 */
+	protected $query;
 
-    protected function template(string $object, string $field, array $data)
-    {
-        $value = $this->$field();
+	/**
+	 * @var mixed
+	 */
+	protected $text;
 
-        if (is_array($value) === true) {
-            if (isset($value[$object]) === false) {
-                throw new NotFoundException('Missing "' . $field . '" definition');
-            }
+	/**
+	 * @var mixed
+	 */
+	protected $value;
 
-            $value = $value[$object];
-        }
+	/**
+	 * OptionsQuery constructor
+	 *
+	 * @param array $props
+	 */
+	public function __construct(array $props)
+	{
+		$this->setProperties($props);
+	}
 
-        return Str::template($value, $data);
-    }
+	/**
+	 * @return array
+	 */
+	public function aliases(): array
+	{
+		return $this->aliases;
+	}
 
-    public function options(): array
-    {
-        if (is_array($this->options) === true) {
-            return $this->options;
-        }
+	/**
+	 * @return array
+	 */
+	public function data(): array
+	{
+		return $this->data;
+	}
 
-        $data    = $this->data();
-        $query   = new Query($this->query(), $data);
-        $result  = $query->result();
-        $result  = $this->resultToCollection($result);
-        $options = [];
+	/**
+	 * @param string $object
+	 * @param string $field
+	 * @param array $data
+	 * @return string
+	 * @throws \Kirby\Exception\NotFoundException
+	 */
+	protected function template(string $object, string $field, array $data)
+	{
+		$value = $this->$field();
 
-        foreach ($result as $item) {
-            $alias = $this->resolve($item);
-            $data  = array_merge($data, [$alias => $item]);
+		if (is_array($value) === true) {
+			if (isset($value[$object]) === false) {
+				throw new NotFoundException('Missing "' . $field . '" definition');
+			}
 
-            $options[] = [
-                'text'  => $this->template($alias, 'text', $data),
-                'value' => $this->template($alias, 'value', $data)
-            ];
-        }
+			$value = $value[$object];
+		}
 
-        return $this->options = $options;
-    }
+		return Str::safeTemplate($value, $data);
+	}
 
-    public function query(): string
-    {
-        return $this->query;
-    }
+	/**
+	 * @return array
+	 */
+	public function options(): array
+	{
+		if (is_array($this->options) === true) {
+			return $this->options;
+		}
 
-    public function resolve($object)
-    {
-        // fast access
-        if ($alias = ($this->aliases[get_class($object)] ?? null)) {
-            return $alias;
-        }
+		$data    = $this->data();
+		$query   = new Query($this->query());
+		$result  = $query->resolve($data);
+		$result  = $this->resultToCollection($result);
+		$options = [];
 
-        // slow but precise resolving
-        foreach ($this->aliases as $className => $alias) {
-            if (is_a($object, $className) === true) {
-                return $alias;
-            }
-        }
+		foreach ($result as $item) {
+			$alias = $this->resolve($item);
+			$data  = array_merge($data, [$alias => $item]);
 
-        return 'item';
-    }
+			$options[] = [
+				'text'  => $this->template($alias, 'text', $data),
+				'value' => $this->template($alias, 'value', $data)
+			];
+		}
 
-    protected function resultToCollection($result)
-    {
-        if (is_array($result)) {
-            foreach ($result as $key => $item) {
-                if (is_scalar($item) === true) {
-                    $result[$key] = new Obj([
-                        'key'   => new Field(null, 'key', $key),
-                        'value' => new Field(null, 'value', $item),
-                    ]);
-                }
-            }
+		return $this->options = $options;
+	}
 
-            $result = new Collection($result);
-        }
+	/**
+	 * @return string
+	 */
+	public function query(): string
+	{
+		return $this->query;
+	}
 
-        if (is_a($result, 'Kirby\Toolkit\Collection') === false) {
-            throw new InvalidArgumentException('Invalid query result data');
-        }
+	/**
+	 * @param $object
+	 * @return mixed|string|null
+	 */
+	public function resolve($object)
+	{
+		// fast access
+		if ($alias = ($this->aliases[get_class($object)] ?? null)) {
+			return $alias;
+		}
 
-        return $result;
-    }
+		// slow but precise resolving
+		foreach ($this->aliases as $className => $alias) {
+			if ($object instanceof $className) {
+				return $alias;
+			}
+		}
 
-    protected function setAliases(array $aliases = null)
-    {
-        $this->aliases = $aliases;
-        return $this;
-    }
+		return 'item';
+	}
 
-    protected function setData(array $data)
-    {
-        $this->data = $data;
-        return $this;
-    }
+	/**
+	 * @param $result
+	 * @throws \Kirby\Exception\InvalidArgumentException
+	 */
+	protected function resultToCollection($result)
+	{
+		if (is_array($result)) {
+			foreach ($result as $key => $item) {
+				if (is_scalar($item) === true) {
+					$result[$key] = new Obj([
+						'key'   => new Field(null, 'key', $key),
+						'value' => new Field(null, 'value', $item),
+					]);
+				}
+			}
 
-    protected function setQuery(string $query)
-    {
-        $this->query = $query;
-        return $this;
-    }
+			$result = new Collection($result);
+		}
 
-    protected function setText($text)
-    {
-        $this->text = $text;
-        return $this;
-    }
+		if ($result instanceof Collection === false) {
+			throw new InvalidArgumentException('Invalid query result data');
+		}
 
-    protected function setValue($value)
-    {
-        $this->value = $value;
-        return $this;
-    }
+		return $result;
+	}
 
-    public function text()
-    {
-        return $this->text;
-    }
+	/**
+	 * @param array|null $aliases
+	 * @return $this
+	 */
+	protected function setAliases(array|null $aliases = null)
+	{
+		$this->aliases = $aliases;
+		return $this;
+	}
 
-    public function toArray(): array
-    {
-        return $this->options();
-    }
+	/**
+	 * @param array $data
+	 * @return $this
+	 */
+	protected function setData(array $data)
+	{
+		$this->data = $data;
+		return $this;
+	}
 
-    public function value()
-    {
-        return $this->value;
-    }
+	/**
+	 * @param array|string|null $options
+	 * @return $this
+	 */
+	protected function setOptions($options = null)
+	{
+		$this->options = $options;
+		return $this;
+	}
+
+	/**
+	 * @param string $query
+	 * @return $this
+	 */
+	protected function setQuery(string $query)
+	{
+		$this->query = $query;
+		return $this;
+	}
+
+	/**
+	 * @param mixed $text
+	 * @return $this
+	 */
+	protected function setText($text)
+	{
+		$this->text = $text;
+		return $this;
+	}
+
+	/**
+	 * @param mixed $value
+	 * @return $this
+	 */
+	protected function setValue($value)
+	{
+		$this->value = $value;
+		return $this;
+	}
+
+	/**
+	 * @return mixed
+	 */
+	public function text()
+	{
+		return $this->text;
+	}
+
+	public function toArray(): array
+	{
+		return $this->options();
+	}
+
+	/**
+	 * @return mixed
+	 */
+	public function value()
+	{
+		return $this->value;
+	}
 }

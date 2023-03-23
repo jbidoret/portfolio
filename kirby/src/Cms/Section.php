@@ -11,71 +11,97 @@ use Kirby\Toolkit\Component;
  * @package   Kirby Cms
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://getkirby.com/license
  */
 class Section extends Component
 {
-    /**
-     * Registry for all component mixins
-     *
-     * @var array
-     */
-    public static $mixins = [];
+	/**
+	 * Registry for all component mixins
+	 *
+	 * @var array
+	 */
+	public static $mixins = [];
 
-    /**
-     * Registry for all component types
-     *
-     * @var array
-     */
-    public static $types = [];
+	/**
+	 * Registry for all component types
+	 *
+	 * @var array
+	 */
+	public static $types = [];
 
 
-    public function __construct(string $type, array $attrs = [])
-    {
-        if (isset($attrs['model']) === false) {
-            throw new InvalidArgumentException('Undefined section model');
-        }
+	/**
+	 * Section constructor.
+	 *
+	 * @param string $type
+	 * @param array $attrs
+	 * @throws \Kirby\Exception\InvalidArgumentException
+	 */
+	public function __construct(string $type, array $attrs = [])
+	{
+		if (isset($attrs['model']) === false) {
+			throw new InvalidArgumentException('Undefined section model');
+		}
 
-        // use the type as fallback for the name
-        $attrs['name'] = $attrs['name'] ?? $type;
-        $attrs['type'] = $type;
+		if ($attrs['model'] instanceof Model === false) {
+			throw new InvalidArgumentException('Invalid section model');
+		}
 
-        parent::__construct($type, $attrs);
-    }
+		// use the type as fallback for the name
+		$attrs['name'] ??= $type;
+		$attrs['type']   = $type;
 
-    /**
-     * @return \Kirby\Cms\App
-     */
-    public function kirby()
-    {
-        return $this->model->kirby();
-    }
+		parent::__construct($type, $attrs);
+	}
 
-    /**
-     * @return \Kirby\Cms\Model
-     */
-    public function model()
-    {
-        return $this->model;
-    }
+	public function errors(): array
+	{
+		if (array_key_exists('errors', $this->methods) === true) {
+			return $this->methods['errors']->call($this);
+		}
 
-    public function toArray(): array
-    {
-        $array = parent::toArray();
+		return $this->errors ?? [];
+	}
 
-        unset($array['model']);
+	/**
+	 * @return \Kirby\Cms\App
+	 */
+	public function kirby()
+	{
+		return $this->model()->kirby();
+	}
 
-        return $array;
-    }
+	/**
+	 * @return \Kirby\Cms\Model
+	 */
+	public function model()
+	{
+		return $this->model;
+	}
 
-    public function toResponse(): array
-    {
-        return array_merge([
-            'status' => 'ok',
-            'code'   => 200,
-            'name'   => $this->name,
-            'type'   => $this->type
-        ], $this->toArray());
-    }
+	/**
+	 * @return array
+	 */
+	public function toArray(): array
+	{
+		$array = parent::toArray();
+
+		unset($array['model']);
+
+		return $array;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function toResponse(): array
+	{
+		return array_merge([
+			'status' => 'ok',
+			'code'   => 200,
+			'name'   => $this->name,
+			'type'   => $this->type
+		], $this->toArray());
+	}
 }

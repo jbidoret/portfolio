@@ -2,9 +2,10 @@
 
 namespace Kirby\Form;
 
+use Closure;
 use Exception;
-use Kirby\Cms\Model;
 use Kirby\Exception\InvalidArgumentException;
+use Kirby\Toolkit\A;
 use Kirby\Toolkit\Component;
 use Kirby\Toolkit\I18n;
 use Kirby\Toolkit\V;
@@ -17,324 +18,494 @@ use Kirby\Toolkit\V;
  * @package   Kirby Form
  * @author    Bastian Allgeier <bastian@getkirby.com>
  * @link      https://getkirby.com
- * @copyright Bastian Allgeier GmbH
+ * @copyright Bastian Allgeier
  * @license   https://opensource.org/licenses/MIT
  */
 class Field extends Component
 {
-    /**
-     * Registry for all component mixins
-     *
-     * @var array
-     */
-    public static $mixins = [];
+	/**
+	 * An array of all found errors
+	 *
+	 * @var array|null
+	 */
+	protected $errors;
 
-    /**
-     * Registry for all component types
-     *
-     * @var array
-     */
-    public static $types = [];
+	/**
+	 * Parent collection with all fields of the current form
+	 *
+	 * @var \Kirby\Form\Fields|null
+	 */
+	protected $formFields;
 
-    /**
-     * An array of all found errors
-     *
-     * @var array
-     */
-    protected $errors = [];
+	/**
+	 * Registry for all component mixins
+	 *
+	 * @var array
+	 */
+	public static $mixins = [];
 
-    public function __construct(string $type, array $attrs = [])
-    {
-        if (isset(static::$types[$type]) === false) {
-            throw new InvalidArgumentException('The field type "' . $type . '" does not exist');
-        }
+	/**
+	 * Registry for all component types
+	 *
+	 * @var array
+	 */
+	public static $types = [];
 
-        if (isset($attrs['model']) === false) {
-            throw new InvalidArgumentException('Field requires a model');
-        }
+	/**
+	 * Field constructor
+	 *
+	 * @param string $type
+	 * @param array $attrs
+	 * @param \Kirby\Form\Fields|null $formFields
+	 * @throws \Kirby\Exception\InvalidArgumentException
+	 */
+	public function __construct(string $type, array $attrs = [], ?Fields $formFields = null)
+	{
+		if (isset(static::$types[$type]) === false) {
+			throw new InvalidArgumentException([
+				'key'  => 'field.type.missing',
+				'data' => ['name' => $attrs['name'] ?? '-', 'type' => $type]
+			]);
+		}
 
-        // use the type as fallback for the name
-        $attrs['name'] = $attrs['name'] ?? $type;
-        $attrs['type'] = $type;
+		if (isset($attrs['model']) === false) {
+			throw new InvalidArgumentException('Field requires a model');
+		}
 
-        parent::__construct($type, $attrs);
+		$this->formFields = $formFields;
 
-        $this->validate();
-    }
+		// use the type as fallback for the name
+		$attrs['name'] ??= $type;
+		$attrs['type']   = $type;
 
-    /**
-     * @return mixed
-     */
-    public function api()
-    {
-        if (isset($this->options['api']) === true && is_callable($this->options['api']) === true) {
-            return $this->options['api']->call($this);
-        }
-    }
+		parent::__construct($type, $attrs);
+	}
 
-    /**
-     * @param mixed $default
-     * @return mixed
-     */
-    public function data($default = false)
-    {
-        $save = $this->options['save'] ?? true;
+	/**
+	 * Returns field api call
+	 *
+	 * @return mixed
+	 */
+	public function api()
+	{
+		if (
+			isset($this->options['api']) === true &&
+			$this->options['api'] instanceof Closure
+		) {
+			return $this->options['api']->call($this);
+		}
+	}
 
-        if ($default === true && $this->isEmpty($this->value)) {
-            $value = $this->default();
-        } else {
-            $value = $this->value;
-        }
+	/**
+	 * Returns field data
+	 *
+	 * @param bool $default
+	 * @return mixed
+	 */
+	public function data(bool $default = false)
+	{
+		$save = $this->options['save'] ?? true;
 
-        if ($save === false) {
-            return null;
-        } elseif (is_callable($save) === true) {
-            return $save->call($this, $value);
-        } else {
-            return $value;
-        }
-    }
+		if ($default === true && $this->isEmpty($this->value)) {
+			$value = $this->default();
+		} else {
+			$value = $this->value;
+		}
 
-    public static function defaults(): array
-    {
-        return [
-            'props' => [
-                /**
-                 * Optional text that will be shown after the input
-                 */
-                'after' => function ($after = null) {
-                    return I18n::translate($after, $after);
-                },
-                /**
-                 * Sets the focus on this field when the form loads. Only the first field with this label gets
-                 */
-                'autofocus' => function (bool $autofocus = null): bool {
-                    return $autofocus ?? false;
-                },
-                /**
-                 * Optional text that will be shown before the input
-                 */
-                'before' => function ($before = null) {
-                    return I18n::translate($before, $before);
-                },
-                /**
-                 * Default value for the field, which will be used when a page/file/user is created
-                 */
-                'default' => function ($default = null) {
-                    return $default;
-                },
-                /**
-                 * If `true`, the field is no longer editable and will not be saved
-                 */
-                'disabled' => function (bool $disabled = null): bool {
-                    return $disabled ?? false;
-                },
-                /**
-                 * Optional help text below the field
-                 */
-                'help' => function ($help = null) {
-                    return I18n::translate($help, $help);
-                },
-                /**
-                 * Optional icon that will be shown at the end of the field
-                 */
-                'icon' => function (string $icon = null) {
-                    return $icon;
-                },
-                /**
-                 * The field label can be set as string or associative array with translations
-                 */
-                'label' => function ($label = null) {
-                    return I18n::translate($label, $label);
-                },
-                /**
-                 * Optional placeholder value that will be shown when the field is empty
-                 */
-                'placeholder' => function ($placeholder = null) {
-                    return I18n::translate($placeholder, $placeholder);
-                },
-                /**
-                 * If `true`, the field has to be filled in correctly to be saved.
-                 */
-                'required' => function (bool $required = null): bool {
-                    return $required ?? false;
-                },
-                /**
-                 * If `false`, the field will be disabled in non-default languages and cannot be translated. This is only relevant in multi-language setups.
-                 */
-                'translate' => function (bool $translate = true): bool {
-                    return $translate;
-                },
-                /**
-                 * Conditions when the field will be shown (since 3.1.0)
-                 */
-                'when' => function ($when = null) {
-                    return $when;
-                },
-                /**
-                 * The width of the field in the field grid. Available widths: `1/1`, `1/2`, `1/3`, `1/4`, `2/3`, `3/4`
-                 */
-                'width' => function (string $width = '1/1') {
-                    return $width;
-                },
-                'value' => function ($value = null) {
-                    return $value;
-                }
-            ],
-            'computed' => [
-                'after' => function () {
-                    if ($this->after !== null) {
-                        return $this->model()->toString($this->after);
-                    }
-                },
-                'before' => function () {
-                    if ($this->before !== null) {
-                        return $this->model()->toString($this->before);
-                    }
-                },
-                'default' => function () {
-                    if ($this->default === null) {
-                        return;
-                    }
+		if ($save === false) {
+			return null;
+		}
 
-                    if (is_string($this->default) === false) {
-                        return $this->default;
-                    }
+		if ($save instanceof Closure) {
+			return $save->call($this, $value);
+		}
 
-                    return $this->model()->toString($this->default);
-                },
-                'help' => function () {
-                    if ($this->help) {
-                        $help = $this->model()->toString($this->help);
-                        $help = $this->kirby()->kirbytext($help);
-                        return $help;
-                    }
-                },
-                'label' => function () {
-                    if ($this->label !== null) {
-                        return $this->model()->toString($this->label);
-                    }
-                },
-                'placeholder' => function () {
-                    if ($this->placeholder !== null) {
-                        return $this->model()->toString($this->placeholder);
-                    }
-                }
-            ]
-        ];
-    }
+		return $value;
+	}
 
-    public function errors(): array
-    {
-        return $this->errors;
-    }
+	/**
+	 * Default props and computed of the field
+	 *
+	 * @return array
+	 */
+	public static function defaults(): array
+	{
+		return [
+			'props' => [
+				/**
+				 * Optional text that will be shown after the input
+				 */
+				'after' => function ($after = null) {
+					return I18n::translate($after, $after);
+				},
+				/**
+				 * Sets the focus on this field when the form loads. Only the first field with this label gets
+				 */
+				'autofocus' => function (bool $autofocus = null): bool {
+					return $autofocus ?? false;
+				},
+				/**
+				 * Optional text that will be shown before the input
+				 */
+				'before' => function ($before = null) {
+					return I18n::translate($before, $before);
+				},
+				/**
+				 * Default value for the field, which will be used when a page/file/user is created
+				 */
+				'default' => function ($default = null) {
+					return $default;
+				},
+				/**
+				 * If `true`, the field is no longer editable and will not be saved
+				 */
+				'disabled' => function (bool $disabled = null): bool {
+					return $disabled ?? false;
+				},
+				/**
+				 * Optional help text below the field
+				 */
+				'help' => function ($help = null) {
+					return I18n::translate($help, $help);
+				},
+				/**
+				 * Optional icon that will be shown at the end of the field
+				 */
+				'icon' => function (string $icon = null) {
+					return $icon;
+				},
+				/**
+				 * The field label can be set as string or associative array with translations
+				 */
+				'label' => function ($label = null) {
+					return I18n::translate($label, $label);
+				},
+				/**
+				 * Optional placeholder value that will be shown when the field is empty
+				 */
+				'placeholder' => function ($placeholder = null) {
+					return I18n::translate($placeholder, $placeholder);
+				},
+				/**
+				 * If `true`, the field has to be filled in correctly to be saved.
+				 */
+				'required' => function (bool $required = null): bool {
+					return $required ?? false;
+				},
+				/**
+				 * If `false`, the field will be disabled in non-default languages and cannot be translated. This is only relevant in multi-language setups.
+				 */
+				'translate' => function (bool $translate = true): bool {
+					return $translate;
+				},
+				/**
+				 * Conditions when the field will be shown (since 3.1.0)
+				 */
+				'when' => function ($when = null) {
+					return $when;
+				},
+				/**
+				 * The width of the field in the field grid. Available widths: `1/1`, `1/2`, `1/3`, `1/4`, `2/3`, `3/4`
+				 */
+				'width' => function (string $width = '1/1') {
+					return $width;
+				},
+				'value' => function ($value = null) {
+					return $value;
+				}
+			],
+			'computed' => [
+				'after' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->after !== null) {
+						return $this->model()->toString($this->after);
+					}
+				},
+				'before' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->before !== null) {
+						return $this->model()->toString($this->before);
+					}
+				},
+				'default' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->default === null) {
+						return;
+					}
 
-    public function isEmpty(...$args): bool
-    {
-        if (count($args) === 0) {
-            $value = $this->value();
-        } else {
-            $value = $args[0];
-        }
+					if (is_string($this->default) === false) {
+						return $this->default;
+					}
 
-        if (isset($this->options['isEmpty']) === true) {
-            return $this->options['isEmpty']->call($this, $value);
-        }
+					return $this->model()->toString($this->default);
+				},
+				'help' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->help) {
+						$help = $this->model()->toSafeString($this->help);
+						$help = $this->kirby()->kirbytext($help);
+						return $help;
+					}
+				},
+				'label' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->label !== null) {
+						return $this->model()->toString($this->label);
+					}
+				},
+				'placeholder' => function () {
+					/** @var \Kirby\Form\Field $this */
+					if ($this->placeholder !== null) {
+						return $this->model()->toString($this->placeholder);
+					}
+				}
+			]
+		];
+	}
 
-        return in_array($value, [null, '', []], true);
-    }
+	/**
+	 * Creates a new field instance
+	 *
+	 * @param string $type
+	 * @param array $attrs
+	 * @param Fields|null $formFields
+	 * @return static
+	 */
+	public static function factory(string $type, array $attrs = [], ?Fields $formFields = null)
+	{
+		$field = static::$types[$type] ?? null;
 
-    public function isInvalid(): bool
-    {
-        return empty($this->errors) === false;
-    }
+		if (is_string($field) && class_exists($field) === true) {
+			$attrs['siblings'] = $formFields;
+			return new $field($attrs);
+		}
 
-    public function isRequired(): bool
-    {
-        return $this->required ?? false;
-    }
+		return new static($type, $attrs, $formFields);
+	}
 
-    public function isValid(): bool
-    {
-        return empty($this->errors) === true;
-    }
+	/**
+	 * Parent collection with all fields of the current form
+	 *
+	 * @return \Kirby\Form\Fields|null
+	 */
+	public function formFields(): ?Fields
+	{
+		return $this->formFields;
+	}
 
-    /**
-     * @return \Kirby\Cms\App
-     */
-    public function kirby()
-    {
-        return $this->model->kirby();
-    }
+	/**
+	 * Validates when run for the first time and returns any errors
+	 *
+	 * @return array
+	 */
+	public function errors(): array
+	{
+		if ($this->errors === null) {
+			$this->validate();
+		}
 
-    public function model()
-    {
-        return $this->model;
-    }
+		return $this->errors;
+	}
 
-    public function save(): bool
-    {
-        return ($this->options['save'] ?? true) !== false;
-    }
+	/**
+	 * Checks if the field is empty
+	 *
+	 * @param mixed ...$args
+	 * @return bool
+	 */
+	public function isEmpty(...$args): bool
+	{
+		if (count($args) === 0) {
+			$value = $this->value();
+		} else {
+			$value = $args[0];
+		}
 
-    public function toArray(): array
-    {
-        $array = parent::toArray();
+		if (isset($this->options['isEmpty']) === true) {
+			return $this->options['isEmpty']->call($this, $value);
+		}
 
-        unset($array['model']);
+		return in_array($value, [null, '', []], true);
+	}
 
-        $array['invalid']   = $this->isInvalid();
-        $array['errors']    = $this->errors();
-        $array['signature'] = md5(json_encode($array));
+	/**
+	 * Checks if the field is invalid
+	 *
+	 * @return bool
+	 */
+	public function isInvalid(): bool
+	{
+		return empty($this->errors()) === false;
+	}
 
-        ksort($array);
+	/**
+	 * Checks if the field is required
+	 *
+	 * @return bool
+	 */
+	public function isRequired(): bool
+	{
+		return $this->required ?? false;
+	}
 
-        return array_filter($array, function ($item) {
-            return $item !== null;
-        });
-    }
+	/**
+	 * Checks if the field is valid
+	 *
+	 * @return bool
+	 */
+	public function isValid(): bool
+	{
+		return empty($this->errors()) === true;
+	}
 
-    protected function validate(): void
-    {
-        $validations  = $this->options['validations'] ?? [];
-        $this->errors = [];
+	/**
+	 * Returns the Kirby instance
+	 *
+	 * @return \Kirby\Cms\App
+	 */
+	public function kirby()
+	{
+		return $this->model()->kirby();
+	}
 
-        // validate required values
-        if ($this->isRequired() === true && $this->save() === true && $this->isEmpty() === true) {
-            $this->errors['required'] = I18n::translate('error.validation.required');
-        }
+	/**
+	 * Returns the parent model
+	 *
+	 * @return mixed
+	 */
+	public function model()
+	{
+		return $this->model;
+	}
 
-        foreach ($validations as $key => $validation) {
-            if (is_int($key) === true) {
-                // predefined validation
-                try {
-                    Validations::$validation($this, $this->value());
-                } catch (Exception $e) {
-                    $this->errors[$validation] = $e->getMessage();
-                }
-                continue;
-            }
+	/**
+	 * Checks if the field needs a value before being saved;
+	 * this is the case if all of the following requirements are met:
+	 * - The field is saveable
+	 * - The field is required
+	 * - The field is currently empty
+	 * - The field is not currently inactive because of a `when` rule
+	 *
+	 * @return bool
+	 */
+	protected function needsValue(): bool
+	{
+		// check simple conditions first
+		if ($this->save() === false || $this->isRequired() === false || $this->isEmpty() === false) {
+			return false;
+		}
 
-            if (is_a($validation, 'Closure') === true) {
-                try {
-                    $validation->call($this, $this->value());
-                } catch (Exception $e) {
-                    $this->errors[$key] = $e->getMessage();
-                }
-            }
-        }
+		// check the data of the relevant fields if there is a `when` option
+		if (empty($this->when) === false && is_array($this->when) === true) {
+			$formFields = $this->formFields();
 
-        if (empty($this->validate) === false) {
-            $errors = V::errors($this->value(), $this->validate);
+			if ($formFields !== null) {
+				foreach ($this->when as $field => $value) {
+					$field      = $formFields->get($field);
+					$inputValue = $field !== null ? $field->value() : '';
 
-            if (empty($errors) === false) {
-                $this->errors = array_merge($this->errors, $errors);
-            }
-        }
-    }
+					// if the input data doesn't match the requested `when` value,
+					// that means that this field is not required and can be saved
+					// (*all* `when` conditions must be met for this field to be required)
+					if ($inputValue !== $value) {
+						return false;
+					}
+				}
+			}
+		}
 
-    public function value()
-    {
-        return $this->save() ? $this->value : null;
-    }
+		// either there was no `when` condition or all conditions matched
+		return true;
+	}
+
+	/**
+	 * Checks if the field is saveable
+	 *
+	 * @return bool
+	 */
+	public function save(): bool
+	{
+		return ($this->options['save'] ?? true) !== false;
+	}
+
+	/**
+	 * Converts the field to a plain array
+	 *
+	 * @return array
+	 */
+	public function toArray(): array
+	{
+		$array = parent::toArray();
+
+		unset($array['model']);
+
+		$array['saveable']  = $this->save();
+		$array['signature'] = md5(json_encode($array));
+
+		ksort($array);
+
+		return array_filter(
+			$array,
+			fn ($item) => $item !== null && is_object($item) === false
+		);
+	}
+
+	/**
+	 * Runs the validations defined for the field
+	 *
+	 * @return void
+	 */
+	protected function validate(): void
+	{
+		$validations  = $this->options['validations'] ?? [];
+		$this->errors = [];
+
+		// validate required values
+		if ($this->needsValue() === true) {
+			$this->errors['required'] = I18n::translate('error.validation.required');
+		}
+
+		foreach ($validations as $key => $validation) {
+			if (is_int($key) === true) {
+				// predefined validation
+				try {
+					Validations::$validation($this, $this->value());
+				} catch (Exception $e) {
+					$this->errors[$validation] = $e->getMessage();
+				}
+				continue;
+			}
+
+			if ($validation instanceof Closure) {
+				try {
+					$validation->call($this, $this->value());
+				} catch (Exception $e) {
+					$this->errors[$key] = $e->getMessage();
+				}
+			}
+		}
+
+		if (
+			empty($this->validate) === false &&
+			($this->isEmpty() === false || $this->isRequired() === true)
+		) {
+			$rules  = A::wrap($this->validate);
+			$errors = V::errors($this->value(), $rules);
+
+			if (empty($errors) === false) {
+				$this->errors = array_merge($this->errors, $errors);
+			}
+		}
+	}
+
+	/**
+	 * Returns the value of the field if saveable
+	 * otherwise it returns null
+	 *
+	 * @return mixed
+	 */
+	public function value()
+	{
+		return $this->save() ? $this->value : null;
+	}
 }
