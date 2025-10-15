@@ -20,6 +20,13 @@ return [
 		'placeholder' => null,
 
 		/**
+		 * Whether to enable batch editing
+		 */
+		'batch' => function (bool $batch = false) {
+			return $batch;
+		},
+
+		/**
 		 * Optional columns definition to only show selected fields in the structure table.
 		 */
 		'columns' => function (array $columns = []) {
@@ -45,7 +52,7 @@ return [
 		/**
 		 * Set the default rows for the structure
 		 */
-		'default' => function (array $default = null) {
+		'default' => function (array|null $default = null) {
 			return $default;
 		},
 
@@ -58,38 +65,38 @@ return [
 		/**
 		 * The number of entries that will be displayed on a single page. Afterwards pagination kicks in.
 		 */
-		'limit' => function (int $limit = null) {
+		'limit' => function (int|null $limit = null) {
 			return $limit;
 		},
 		/**
 		 * Maximum allowed entries in the structure. Afterwards the "Add" button will be switched off.
 		 */
-		'max' => function (int $max = null) {
+		'max' => function (int|null $max = null) {
 			return $max;
 		},
 		/**
 		 * Minimum required entries in the structure
 		 */
-		'min' => function (int $min = null) {
+		'min' => function (int|null $min = null) {
 			return $min;
 		},
 		/**
 		 * Toggles adding to the top or bottom of the list
 		 */
-		'prepend' => function (bool $prepend = null) {
+		'prepend' => function (bool|null $prepend = null) {
 			return $prepend;
 		},
 		/**
 		 * Toggles drag & drop sorting
 		 */
-		'sortable' => function (bool $sortable = null) {
+		'sortable' => function (bool|null $sortable = null) {
 			return $sortable;
 		},
 		/**
 		 * Sorts the entries by the given field and order (i.e. `title desc`)
 		 * Drag & drop is disabled in this case
 		 */
-		'sortBy' => function (string $sort = null) {
+		'sortBy' => function (string|null $sort = null) {
 			return $sort;
 		}
 	],
@@ -105,7 +112,7 @@ return [
 				return [];
 			}
 
-			return $this->form()->fields()->toArray();
+			return $this->form()->fields()->toProps();
 		},
 		'columns' => function () {
 			$columns   = [];
@@ -149,7 +156,7 @@ return [
 
 			// make the first column visible on mobile
 			// if no other mobile columns are defined
-			if (in_array(true, array_column($columns, 'mobile')) === false) {
+			if (in_array(true, array_column($columns, 'mobile'), true) === false) {
 				$columns[array_key_first($columns)]['mobile'] = true;
 			}
 
@@ -166,24 +173,37 @@ return [
 					continue;
 				}
 
-				$value[] = $this->form($row)->values();
+				$value[] = $this->form()->fill(input: $row, passthrough: true)->toFormValues();
 			}
 
 			return $value;
 		},
-		'form' => function (array $values = []) {
-			return new Form([
-				'fields' => $this->attrs['fields'] ?? [],
-				'values' => $values,
-				'model'  => $this->model
-			]);
-		},
+		'form' => function () {
+			$this->form ??= new Form(
+				fields: $this->attrs['fields'] ?? [],
+				model: $this->model,
+				language: 'current'
+			);
+
+			return $this->form->reset();
+		}
 	],
 	'save' => function ($value) {
-		$data = [];
+		$data     = [];
+		$form     = $this->form();
+		$defaults = $form->defaults();
 
-		foreach ($value as $row) {
-			$row = $this->form($row)->content();
+		foreach ($value as $index => $row) {
+			$row = $form
+				->reset()
+				->fill(
+					input: $defaults,
+				)
+				->submit(
+					input: $row,
+					passthrough: true
+				)
+				->toStoredValues();
 
 			// remove frontend helper id
 			unset($row['_id']);
@@ -204,19 +224,20 @@ return [
 			$values = A::wrap($value);
 
 			foreach ($values as $index => $value) {
-				$form = $this->form($value);
+				$form = $this->form();
+				$form->fill(input: $value);
 
 				foreach ($form->fields() as $field) {
 					$errors = $field->errors();
 
 					if (empty($errors) === false) {
-						throw new InvalidArgumentException([
-							'key'  => 'structure.validation',
-							'data' => [
+						throw new InvalidArgumentException(
+							key: 'structure.validation',
+							data: [
 								'field' => $field->label() ?? Str::ucfirst($field->name()),
 								'index' => $index + 1
 							]
-						]);
+						);
 					}
 				}
 			}

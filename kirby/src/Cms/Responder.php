@@ -4,7 +4,9 @@ namespace Kirby\Cms;
 
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Filesystem\Mime;
+use Kirby\Http\Response as HttpResponse;
 use Kirby\Toolkit\Str;
+use Stringable;
 
 /**
  * Global response configuration
@@ -15,7 +17,7 @@ use Kirby\Toolkit\Str;
  * @copyright Bastian Allgeier
  * @license   https://getkirby.com/license
  */
-class Responder
+class Responder implements Stringable
 {
 	/**
 	 * Timestamp when the response expires
@@ -75,7 +77,7 @@ class Responder
 	 *
 	 * @return $this|string|null
 	 */
-	public function body(string $body = null): static|string|null
+	public function body(string|null $body = null): static|string|null
 	{
 		if ($body === null) {
 			return $this->body;
@@ -134,7 +136,7 @@ class Responder
 	public function usesCookie(string $name): void
 	{
 		// only add unique names
-		if (in_array($name, $this->usesCookies) === false) {
+		if (in_array($name, $this->usesCookies, true) === false) {
 			$this->usesCookies[] = $name;
 		}
 	}
@@ -187,7 +189,9 @@ class Responder
 			$parsedExpires = strtotime($expires);
 
 			if (is_int($parsedExpires) !== true) {
-				throw new InvalidArgumentException('Invalid time string "' . $expires . '"');
+				throw new InvalidArgumentException(
+					message: 'Invalid time string "' . $expires . '"'
+				);
 			}
 
 			$expires = $parsedExpires;
@@ -210,7 +214,7 @@ class Responder
 	 *
 	 * @return int|$this
 	 */
-	public function code(int $code = null)
+	public function code(int|null $code = null)
 	{
 		if ($code === null) {
 			return $this->code;
@@ -266,7 +270,7 @@ class Responder
 	 *
 	 * @return array|$this
 	 */
-	public function headers(array $headers = null)
+	public function headers(array|null $headers = null)
 	{
 		if ($headers === null) {
 			$injectedHeaders = [];
@@ -293,7 +297,7 @@ class Responder
 			}
 
 			// lazily inject (never override custom headers)
-			return array_merge($injectedHeaders, $this->headers);
+			return [...$injectedHeaders, ...$this->headers];
 		}
 
 		$this->headers = $headers;
@@ -305,7 +309,7 @@ class Responder
 	 *
 	 * @return string|$this
 	 */
-	public function json(array $json = null)
+	public function json(array|null $json = null)
 	{
 		if ($json !== null) {
 			$this->body(json_encode($json));
@@ -334,8 +338,15 @@ class Responder
 	/**
 	 * Creates and returns the response object from the config
 	 */
-	public function send(string $body = null): Response
+	public function send(HttpResponse|string|null $body = null): HttpResponse
 	{
+		if ($body instanceof HttpResponse) {
+			// inject headers from the responder into the response
+			// (only if they are not already set);
+			$body->setHeaderFallbacks($this->headers());
+			return $body;
+		}
+
 		if ($body !== null) {
 			$this->body($body);
 		}
@@ -365,7 +376,7 @@ class Responder
 	 *
 	 * @return string|$this
 	 */
-	public function type(string $type = null)
+	public function type(string|null $type = null)
 	{
 		if ($type === null) {
 			return $this->type;
@@ -384,8 +395,9 @@ class Responder
 	 * all caches due to using dynamic data based on auth
 	 * and/or cookies; the request data only matters if it
 	 * is actually used/relied on by the response
+	 *
 	 * @since 3.7.0
-	 * @internal
+	 * @unstable
 	 */
 	public static function isPrivate(bool $usesAuth, array $usesCookies): bool
 	{

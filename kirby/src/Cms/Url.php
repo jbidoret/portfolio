@@ -2,6 +2,7 @@
 
 namespace Kirby\Cms;
 
+use Kirby\Filesystem\F;
 use Kirby\Http\Url as BaseUrl;
 use Kirby\Toolkit\Str;
 
@@ -44,9 +45,9 @@ class Url extends BaseUrl
 	 * @return string The safe string
 	 */
 	public static function slug(
-		string $string = null,
-		string $separator = null,
-		string $allowed = null,
+		string|null $string = null,
+		string|null $separator = null,
+		string|null $allowed = null,
 	): string {
 		$maxlength = App::instance()->option('slugs.maxlength', 255);
 		return Str::slug($string, $separator, $allowed, $maxlength);
@@ -63,10 +64,11 @@ class Url extends BaseUrl
 		$kirby = App::instance();
 		$page  = $kirby->site()->page();
 		$path  = $assetPath . '/' . $page->template() . '.' . $extension;
-		$file  = $kirby->root('assets') . '/' . $path;
+		$root  = $kirby->root('assets');
+		$file  = $root . '/' . $path;
 		$url   = $kirby->url('assets') . '/' . $path;
 
-		return file_exists($file) === true ? $url : null;
+		return F::exists($file, $root) === true ? $url : null;
 	}
 
 	/**

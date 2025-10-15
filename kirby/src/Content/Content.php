@@ -3,6 +3,7 @@
 namespace Kirby\Content;
 
 use Kirby\Cms\Blueprint;
+use Kirby\Cms\File;
 use Kirby\Cms\ModelWithContent;
 use Kirby\Form\Form;
 
@@ -54,7 +55,7 @@ class Content
 	 */
 	public function __construct(
 		array $data = [],
-		ModelWithContent $parent = null,
+		ModelWithContent|null $parent = null,
 		bool $normalize = true
 	) {
 		if ($normalize === true) {
@@ -96,14 +97,15 @@ class Content
 		);
 
 		// forms
-		$oldForm = new Form([
-			'fields' => $old->fields(),
-			'model'  => $this->parent
-		]);
-		$newForm = new Form([
-			'fields' => $new->fields(),
-			'model'  => $this->parent
-		]);
+		$oldForm = new Form(
+			fields: $old->fields(),
+			model: $this->parent
+		);
+
+		$newForm = new Form(
+			fields: $new->fields(),
+			model: $this->parent
+		);
 
 		// fields
 		$oldFields = $oldForm->fields();
@@ -122,8 +124,14 @@ class Content
 			}
 		}
 
+		// if the parent is a file, overwrite the template
+		// with the new template name
+		if ($this->parent instanceof File) {
+			$data['template'] = $to;
+		}
+
 		// preserve existing fields
-		return array_merge($this->data, $data);
+		return [...$this->data, ...$data];
 	}
 
 	/**
@@ -149,7 +157,7 @@ class Content
 	 * Returns either a single field object
 	 * or all registered fields
 	 */
-	public function get(string $key = null): Field|array
+	public function get(string|null $key = null): Field|array
 	{
 		if ($key === null) {
 			return $this->fields();
@@ -228,13 +236,10 @@ class Content
 	}
 
 	/**
-	 * Updates the content and returns
-	 * a cloned object
-	 *
-	 * @return $this
+	 * Updates the content in memory.
 	 */
 	public function update(
-		array $content = null,
+		array|null $content = null,
 		bool $overwrite = false
 	): static {
 		$content = array_change_key_case((array)$content, CASE_LOWER);

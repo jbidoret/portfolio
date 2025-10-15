@@ -2,6 +2,7 @@
 
 use Kirby\Cms\App;
 use Kirby\Cms\Blocks;
+use Kirby\Cms\Collection;
 use Kirby\Cms\File;
 use Kirby\Cms\Files;
 use Kirby\Cms\Html;
@@ -80,7 +81,9 @@ return function (App $app) {
 					$message .= ' on parent "' . $parent->title() . '"';
 				}
 
-				throw new InvalidArgumentException($message);
+				throw new InvalidArgumentException(
+					message: $message
+				);
 			}
 		},
 
@@ -115,7 +118,7 @@ return function (App $app) {
 		'toDate' => function (
 			Field $field,
 			string|IntlDateFormatter|null $format = null,
-			string $fallback = null
+			string|null $fallback = null
 		) use ($app): string|int|null {
 			if (empty($field->value) === true && $fallback === null) {
 				return null;
@@ -128,6 +131,18 @@ return function (App $app) {
 			}
 
 			return Str::date($time, $format);
+		},
+
+		/**
+		 * Parse yaml entries data and convert it to a
+		 * collection of field objects
+		 */
+		'toEntries' => function (Field $field): Collection {
+			$entries = new Collection(parent: $field->parent());
+			foreach ($field->yaml() as $index => $entry) {
+				$entries->append(new Field($field->parent(), $index, $entry));
+			}
+			return $entries;
 		},
 
 		/**
@@ -266,7 +281,9 @@ return function (App $app) {
 					$message .= ' on parent "' . $parent->id() . '"';
 				}
 
-				throw new InvalidArgumentException($message);
+				throw new InvalidArgumentException(
+					message: $message
+				);
 			}
 		},
 
@@ -504,7 +521,7 @@ return function (App $app) {
 		 */
 		'query' => function (
 			Field $field,
-			string $expect = null
+			string|null $expect = null
 		) use ($app): mixed {
 			if ($parent = $field->parent()) {
 				return $parent->query($field->value, $expect);
