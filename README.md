@@ -7,15 +7,15 @@ https://github.com/jbidoret/portfolio/archive/master.zip
 
 ## Prérequis
 
-- Un serveur de développement : [MAMP](http://mamp.info/) ou [XAMPP](https://www.apachefriends.org/index.html) ;
-- Un éditeur de code : [VS Code](https://code.visualstudio.com/) ou [Atom](https://atom.io/) ;
+- Un serveur de développement : [Herd](https://herd.laravel.com/), [MAMP](http://mamp.info/) ou [XAMPP](https://www.apachefriends.org/index.html) ;
+- Un éditeur de code : [VS Code](https://code.visualstudio.com/) ou [Pulsar](https://pulsar-edit.dev/) ;
 - Un hébergeur : [Alwaysdata](https://alwaysdata.com/) ou [OVH](https://ovh.com) ;
 - Un navigateur récent : [Firefox](https://www.mozilla.org/fr/firefox/) ou [Chrome](https://www.google.fr/chrome/).
 
 ## Installation
 
 Télécharger et décompresser le zip, et déplacez les fichiers à l’intérieur 
-du dossier htdocs de MAMP (ou du dossier racine de votre serveur de développement, s’il est configuré différemment).
+du dossier `htdocs` de MAMP (ou du dossier racine de votre serveur de développement, s’il est configuré différemment). Avec Herd, n’importe quel dossier peut devenir un site.
 
 Vous pourrez ensuite :
 1. afficher un finder (explorateur) contenant les fichiers
@@ -27,4 +27,4 @@ Vous pourrez ensuite :
 
 ## Processus et documentation
 
-À suivre sur le site des [ateliers web de l’ÉSAD Pyrénées](https://ateliers.esad-pyrenees.fr/web/pages/projets/portfolio).
+À suivre sur [Radical web design](https://radicalweb.design/projets/portfolio/).
