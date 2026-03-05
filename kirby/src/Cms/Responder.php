@@ -5,6 +5,7 @@ namespace Kirby\Cms;
 use Kirby\Exception\InvalidArgumentException;
 use Kirby\Filesystem\Mime;
 use Kirby\Http\Response as HttpResponse;
+use Kirby\Http\VolatileHeaders;
 use Kirby\Toolkit\Str;
 use Stringable;
 
@@ -63,6 +64,11 @@ class Responder implements Stringable
 	 * relies on
 	 */
 	protected array $usesCookies = [];
+
+	/**
+	 * Volatile headers manager
+	 */
+	protected VolatileHeaders|null $volatileHeaders = null;
 
 	/**
 	 * Creates and sends the response
@@ -237,6 +243,7 @@ class Responder implements Stringable
 		$this->type($response['type'] ?? null);
 		$this->usesAuth($response['usesAuth'] ?? null);
 		$this->usesCookies($response['usesCookies'] ?? null);
+		$this->volatileHeaders($response['volatileHeaders'] ?? null);
 	}
 
 	/**
@@ -274,11 +281,20 @@ class Responder implements Stringable
 	{
 		if ($headers === null) {
 			$injectedHeaders = [];
+			$isPrivate = static::isPrivate($this->usesAuth(), $this->usesCookies());
 
-			if (static::isPrivate($this->usesAuth(), $this->usesCookies()) === true) {
+			if ($isPrivate === true) {
 				// never ever cache private responses
 				$injectedHeaders['Cache-Control'] = 'no-store, private';
-			} else {
+			}
+
+			// inject CORS headers if enabled
+			$corsHeaders = Cors::headers();
+			if ($corsHeaders !== []) {
+				$injectedHeaders = [...$injectedHeaders, ...$corsHeaders];
+			}
+
+			if ($isPrivate === false) {
 				// the response is public, but it may
 				// vary based on request headers
 				$vary = [];
@@ -291,6 +307,13 @@ class Responder implements Stringable
 					$vary[] = 'Cookie';
 				}
 
+				// merge Vary from CORS if present
+				if (isset($injectedHeaders['Vary']) === true) {
+					// split CORS Vary into individual values to avoid duplication
+					$corsVaryValues = array_map('trim', explode(',', $injectedHeaders['Vary']));
+					$vary = [...$vary, ...$corsVaryValues];
+				}
+
 				if ($vary !== []) {
 					$injectedHeaders['Vary'] = implode(', ', $vary);
 				}
@@ -301,6 +324,7 @@ class Responder implements Stringable
 		}
 
 		$this->headers = $headers;
+		$this->volatileHeaders([]);
 		return $this;
 	}
 
@@ -360,15 +384,34 @@ class Responder implements Stringable
 	 */
 	public function toArray(): array
 	{
-		// the `cache`, `expires`, `usesAuth` and `usesCookies`
-		// values are explicitly *not* serialized as they are
-		// volatile and not to be exported
+		// the `cache`, `expires`, `usesAuth`, `usesCookies` and
+		// `volatileHeaders` values are explicitly *not* serialized
+		// as they are volatile and not to be exported
 		return [
 			'body'    => $this->body(),
 			'code'    => $this->code(),
 			'headers' => $this->headers(),
 			'type'    => $this->type(),
 		];
+	}
+
+	/**
+	 * Converts the response configuration to an array
+	 * that can safely be cached
+	 *
+	 * @since 5.2.0
+	 */
+	public function toCacheArray(): array
+	{
+		$response = $this->toArray();
+		$volatile = $this->volatileHeaders()->collect();
+
+		if ($volatile === []) {
+			return $response;
+		}
+
+		$response['headers'] = $this->volatileHeaders()->strip($response['headers'], $volatile);
+		return $response;
 	}
 
 	/**
@@ -414,5 +457,39 @@ class Responder implements Stringable
 		}
 
 		return false;
+	}
+
+	/**
+	 * Marks headers (or header parts) as request-dependent, so they
+	 * can be subtracted before caching a response snapshot
+	 *
+	 * @since 5.2.0
+	 * @deprecated 5.3.0 Use `::volatileHeaders()->mark($name, $values)` instead. Will be removed in Kirby 6.
+	 */
+	public function markVolatileHeader(string $name, array|null $values = null): void
+	{
+		$this->volatileHeaders()->mark($name, $values);
+	}
+
+	/**
+	 * Setter and getter for the volatile headers manager
+	 * @since 5.3.0
+	 */
+	public function volatileHeaders(VolatileHeaders|array|null $headers = null): VolatileHeaders
+	{
+		if ($headers === null) {
+			return $this->volatileHeaders ??= new VolatileHeaders();
+		}
+
+		if ($headers instanceof VolatileHeaders) {
+			return $this->volatileHeaders = $headers;
+		}
+
+		$volatileHeaders = new VolatileHeaders();
+		foreach ($headers as $name => $values) {
+			$volatileHeaders->mark($name, $values);
+		}
+
+		return $this->volatileHeaders = $volatileHeaders;
 	}
 }
